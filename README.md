@@ -1,30 +1,59 @@
-# 更简单的过滤（EasierFiltering）
+# 更简单的过滤
 
-《深空当铺》(Probably Stolen) 模组。对任意装水容器一次性过滤：自动使用仓库中的过滤器（优先高级），并在执行前预览耐久消耗与结果纯净度。
+《深空当铺》模组：对着水壶、水箱等装水容器用一次，就能按仓库里的过滤器把水滤到目标档位，不必再反复倾倒。
 
-A quality-of-life mod for *Probably Stolen*. Filter any filled water container in one action, using spare filters from storage (advanced first), with a durability and purity preview before you confirm.
+A *Probably Stolen* mod that filters any filled water container in one action.
 
-## 功能
+**适配游戏：** 1.0.0.13（商店标签 100-Rev13）  
+**作者：** kirkxia
 
-- 新增物品「便携过滤装置」：对准已装水的容器打开预览窗口
-- 预览范围内的过滤器库存、目标水质能否达到、消耗的耐久、结果纯净度与水量
-- 确认后原地过滤，不必用水壶反复倾倒
-- 可选：拥有紫外线灯时去除微生物（不消耗耐久）
-- 耗尽的滤芯可留在原位、丢进垃圾桶，或移到主仓库 / 后台柜台
-- 默认读档时若还没有该工具，会放到后台柜台（放不下则改放主仓库）
+## 做什么
 
-设置在游戏「模组」菜单的齿轮里：搜索范围、耗尽滤芯去向、是否用紫外线灯、是否按真实耐久计算、是否使用非常规滤材（如 Kotton 布）。
+原版过滤要用水壶一趟一趟倒。本模组加一件工具「便携过滤装置」：
+
+1. 对准任意已装水的容器（水壶、水箱等）
+2. 弹出预览：当前水质、范围内有哪些过滤器、滤到每一档要耗多少耐久、滤完还剩多少水
+3. 选一个目标档位，确认后原地完成过滤
+
+高级过滤器会优先使用。有紫外线灯时还可以去掉微生物（灯本身不消耗耐久）。
+
+## 怎么用
+
+1. 把模组文件夹放到游戏的 `Mods\` 下，启动游戏，在「模组」菜单里**启用**，然后**重启**一次。
+2. 读档后，后台柜台（或主仓库）会出现「便携过滤装置」。没有的话，打开模组齿轮，确认「读档时赠送过滤工具」是开的，再读一次档。
+3. 拿起工具，点已经装了水的容器，看预览，选档位，点「执行过滤」。
+
+耗尽的滤芯默认留在原位，也可以在设置里改成丢进垃圾桶、或送回主仓库 / 后台。
+
+## 设置
+
+游戏主菜单 → 模组 → 本模组右侧齿轮：
+
+| 设置 | 说明 |
+|---|---|
+| 过滤器搜索范围 | 默认搜主仓库和后台；可改成「所有自己的物品」或「只用主仓库」 |
+| 耗尽的滤芯去向 | 留在原位 / 垃圾桶 / 主仓库 / 后台柜台 |
+| 拥有紫外线灯时去除微生物 | 默认开 |
+| 按真实耐久计算 | 默认开。关掉的话，假过滤器会看起来比实际更耐用 |
+| 使用非常规滤材 | 默认关。打开后连 Kotton 布等带过滤标签的东西也会拿来用 |
+| 读档时赠送过滤工具 | 默认开 |
 
 ## 安装
 
-把编译产物放到游戏的 `Mods/EasierFiltering/`（需包含 `manifest.xml`、`EasierFiltering.dll` 以及 `Textures/`、`Localization/`）。启用后重启游戏。
+把整个模组文件夹放到：
 
-本仓库是源码，作为作者私有工作区的 Git 子模块编译：项目引用工作区共享的 `build/PsmMod.props`。单独克隆后无法直接 `dotnet build`，请把本目录放到该工作区根目录后再编译，或把已编译的 DLL 与资源复制进游戏 `Mods/`。
+`…\steamapps\common\Probably Stolen\Mods\EasierFiltering\`
 
-## 清单
+文件夹里至少要有 `manifest.xml`、`EasierFiltering.dll`、`Textures\`、`Localization\`。启用后必须重启游戏。
 
-| 字段 | 值 |
-|---|---|
-| ID | `easier_filtering` |
-| 游戏版本 | `1.0.0` |
-| 能力 | 无 |
+从源码编译（需要 [.NET SDK](https://dotnet.microsoft.com/download) 6.0+ 和一份正式版游戏）：
+
+```powershell
+dotnet build -c Release
+```
+
+会生成 `dist\EasierFiltering\`，并自动复制到游戏的 `Mods\EasierFiltering\`。游戏不在默认 Steam 路径时，复制 `GameDir.local.props.example` 为 `GameDir.local.props` 并改里面的路径。
+
+## 卸载
+
+在模组菜单里停用，重启即可。存档不会坏。背包里留下的「便携过滤装置」在停用后会变成未知物品，丢掉即可。

@@ -6,7 +6,7 @@
   <ModVersion>1.0</ModVersion>
   <Description>对任意装水容器一次性过滤：自动使用仓库中的过滤器（优先高级），并在执行前预览耐久消耗与结果纯净度。</Description>
   <GameVersions>
-    <Version>1.0.0</Version>
+    <Version>1.0.0.13</Version>
   </GameVersions>
   <Prerequisites />
   <Assemblies>
