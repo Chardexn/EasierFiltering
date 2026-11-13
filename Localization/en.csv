@@ -1,0 +1,55 @@
+# key,text
+tool_name,Portable Filter Rig
+tool_desc,Use on any filled container. Previews every spare filter in storage (advanced first), then filters in place.
+tool_flavor,The pitcher is honest. This is for people who have better things to do than pour.
+
+cfg_section,General
+cfg_search_scope,Filter search scope
+cfg_search_scope_tip,"Storage + back: default, main storage and back counters. All owned: includes machines and pitchers. Storage only: smallest range."
+cfg_depleted,Spent filters go to
+cfg_depleted_tip,"Leave in place: do not move. Trash: dumpster. Main storage / back counter: move there."
+cfg_use_uv,Use UV lamp if owned
+cfg_use_uv_tip,Converts microbes into water, matching the handheld UV lamp. UV lamps are not consumed.
+cfg_real_dur,Use real durability
+cfg_real_dur_tip,On: preview matches the real filter. Off: uses the displayed durability (fake filters can look better than they are).
+cfg_fabric,Use improvised filter media
+cfg_fabric_tip,Off: only water filters, advanced filters, and hydroreed filters. On: also Kotton fabric and other WATER_FILTER items.
+cfg_grant,Give the tool when loading a save
+cfg_grant_tip,If you don't already own the portable filter rig, one is placed on the back counter. If that is full, it goes to main storage.
+opt_scope_storage_back,Storage + back counters
+opt_scope_all,All owned items
+opt_scope_storage,Main storage only
+opt_dep_leave,Leave in place
+opt_dep_trash,Trash
+opt_dep_storage,Main storage
+opt_dep_back,Back counter
+
+preview_title,Filter Preview
+preview_container,Container
+preview_container_line,{0}  —  {1} ml   {2} ({3})
+preview_stock,Filters in range
+preview_stock_bar,{0} x{1}    use {2} / stock {3}
+preview_stock_other,Other
+preview_stock_uv,UV lamp  x{0}  (no durability cost)
+preview_stock_empty,No usable filters in the current search scope.
+preview_tier,Target grade
+tier_reached,{0} ({1}): already there
+tier_ok,{0} ({1}): reachable, uses {2} durability
+tier_short,{0} ({1}): not enough durability, short {2}
+tier_impossible,{0}: cannot remove {1}. Ceiling {2}
+tier_mark_reached, (already there)
+tier_mark_impossible, (unreachable)
+preview_result,Result
+preview_result_purity,Purity: {0} → {1} ({2})
+preview_result_volume,Volume: {0} ml → {1} ml
+preview_result_pours,Pitcher pours (equiv.): {0}
+preview_max_volume,Current stock can filter up to {0} ml of this water to {1}.
+preview_max_already,Already at the target grade.
+preview_max_impossible,Cannot reach this target. Ceiling is {0}.
+preview_confirm,Filter
+preview_cancel,Cancel
+tip_stop_at_tier,Stops at the grade threshold. Extra durability is not spent.
+
+warn_no_filter,No usable filters (or UV lamp) in the current search scope.
+warn_unfilterable,Remaining contaminants: {0}. Ceiling: {1}.
+warn_shortfall,Not enough durability (short {0}). Expected purity: {1}.

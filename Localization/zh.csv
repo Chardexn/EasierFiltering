@@ -1,0 +1,55 @@
+# key,文本
+tool_name,便携过滤装置
+tool_desc,对任意装水容器使用。预览当前搜索范围内的备用过滤器（优先高级），确认后原地一次性过滤。
+tool_flavor,用水壶反复倾倒是老实办法。这是给不想再倒来倒去的人准备的。
+
+cfg_section,通用
+cfg_search_scope,过滤器搜索范围
+cfg_search_scope_tip,主仓库+后台：默认，只搜主仓库和后台台面。所有拥有物品：包括机器和水壶里的滤芯。只用主仓库：范围最小。
+cfg_depleted,耗尽的滤芯去向
+cfg_depleted_tip,留在原位：不移动。垃圾桶：丢掉。主仓库 / 后台柜台：移到对应格子。
+cfg_use_uv,拥有紫外线灯时去除微生物
+cfg_use_uv_tip,与手持紫外线灯相同：把微生物转化成水。紫外线灯不消耗耐久。
+cfg_real_dur,按真实耐久计算
+cfg_real_dur_tip,开启：预览与真实过滤一致。关闭：按显示耐久计算（假过滤器会看起来比实际更耐用）。
+cfg_fabric,使用非常规滤材
+cfg_fabric_tip,关闭：只用普通过滤器、高级过滤器和水生芦苇滤芯。开启：也包括 Kotton 布等带 WATER_FILTER 标签的物品。
+cfg_grant,读档时赠送过滤工具
+cfg_grant_tip,如果还没有便携过滤装置，读档后放到后台柜台；放不下时改放到主仓库。
+opt_scope_storage_back,主仓库 + 后台
+opt_scope_all,所有拥有的物品
+opt_scope_storage,只用主仓库
+opt_dep_leave,留在原位
+opt_dep_trash,垃圾桶
+opt_dep_storage,主仓库
+opt_dep_back,后台柜台
+
+preview_title,过滤预览
+preview_container,容器
+preview_container_line,{0}  —  {1} ml   {2}（{3}）
+preview_stock,范围内的过滤器
+preview_stock_bar,{0} x{1}    消耗 {2} / 总量 {3}
+preview_stock_other,其他
+preview_stock_uv,紫外线灯  x{0}  （不消耗耐久）
+preview_stock_empty,当前搜索范围内没有可用的过滤器。
+preview_tier,目标水质
+tier_reached,{0}（{1}）：已达到
+tier_ok,{0}（{1}）：可达到，需消耗耐久 {2}
+tier_short,{0}（{1}）：耐久不足，还差 {2}
+tier_impossible,{0}：过滤器去不掉{1}，上限 {2}
+tier_mark_reached,（已达到）
+tier_mark_impossible,（无法达到）
+preview_result,过滤结果
+preview_result_purity,纯净度：{0} → {1}（{2}）
+preview_result_volume,水量：{0} ml → {1} ml
+preview_result_pours,等效水壶倾倒次数：{0}
+preview_max_volume,以当前库存，最多可将 {0} ml 这种水过滤到 {1}。
+preview_max_already,已经达到目标水质。
+preview_max_impossible,无法达到该目标。理论上限为 {0}。
+preview_confirm,执行过滤
+preview_cancel,取消
+tip_stop_at_tier,达到挡位门槛即停止，不多耗耐久。
+
+warn_no_filter,当前搜索范围内没有可用的过滤器（或紫外线灯）。
+warn_unfilterable,过滤器去不掉：{0}。理论上限：{1}。
+warn_shortfall,耐久不足（还差 {0}）。预计只能到 {1}。

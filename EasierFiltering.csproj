@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\build\PsmMod.props" />
+
+  <PropertyGroup>
+    <AssemblyName>EasierFiltering</AssemblyName>
+    <RootNamespace>EasierFiltering</RootNamespace>
+  </PropertyGroup>
+
+  <Import Project="..\build\PsmMod.targets" />
+</Project>

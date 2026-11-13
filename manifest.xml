@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Manifest>
+  <ID>easier_filtering</ID>
+  <Name>更简单的过滤</Name>
+  <Author>kirkxia</Author>
+  <ModVersion>1.0</ModVersion>
+  <Description>对任意装水容器一次性过滤：自动使用仓库中的过滤器（优先高级），并在执行前预览耐久消耗与结果纯净度。</Description>
+  <GameVersions>
+    <Version>1.0.0</Version>
+  </GameVersions>
+  <Prerequisites />
+  <Assemblies>
+    <Assembly>EasierFiltering.dll</Assembly>
+  </Assemblies>
+  <!-- 大多数 mod 为空。用到 files/network/process/steam/steam-auth/window 时才声明；游戏内 F8 运行 mod-scan easier_filtering 自查 -->
+  <Capabilities />
+</Manifest>
