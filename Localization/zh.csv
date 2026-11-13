@@ -37,18 +37,24 @@ tier_reached,{0}（{1}）：已达到
 tier_ok,{0}（{1}）：可达到，需消耗耐久 {2}
 tier_short,{0}（{1}）：耐久不足，还差 {2}
 tier_impossible,{0}：过滤器去不掉{1}，上限 {2}
-tier_mark_reached,（已达到）
-tier_mark_impossible,（无法达到）
+tier_mark_reached, ✓
+tier_mark_impossible, ×
 preview_result,过滤结果
 preview_result_purity,纯净度：{0} → {1}（{2}）
 preview_result_volume,水量：{0} ml → {1} ml
 preview_result_pours,等效水壶倾倒次数：{0}
-preview_max_volume,以当前库存，最多可将 {0} ml 这种水过滤到 {1}。
+preview_max_volume,最多 {0} ml → {1}
 preview_max_already,已经达到目标水质。
 preview_max_impossible,无法达到该目标。理论上限为 {0}。
 preview_confirm,执行过滤
 preview_cancel,取消
+preview_ceiling,滤芯上限
+tier_ceiling_reached,{0}（{1}）：已达到
+tier_ceiling_ok,{0}（{1}）：可达到，需消耗耐久 {2}
+tier_ceiling_short,{0}（{1}）：耐久不足，还差 {2}
+tier_ceiling_impossible,{0}：当前没有能继续提高纯净度的滤芯。
 tip_stop_at_tier,达到挡位门槛即停止，不多耗耐久。
+tip_ceiling,滤芯会滤到再也提不高。默认净水器一轮上限 99.01%（优质水）；要出纯水需要品质模块。水已经高于机器上限时机器不会工作。
 
 warn_no_filter,当前搜索范围内没有可用的过滤器（或紫外线灯）。
 warn_unfilterable,过滤器去不掉：{0}。理论上限：{1}。

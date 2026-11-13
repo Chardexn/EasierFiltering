@@ -37,18 +37,24 @@ tier_reached,{0} ({1}): already there
 tier_ok,{0} ({1}): reachable, uses {2} durability
 tier_short,{0} ({1}): not enough durability, short {2}
 tier_impossible,{0}: cannot remove {1}. Ceiling {2}
-tier_mark_reached, (already there)
-tier_mark_impossible, (unreachable)
+tier_mark_reached, ✓
+tier_mark_impossible, ×
 preview_result,Result
 preview_result_purity,Purity: {0} → {1} ({2})
 preview_result_volume,Volume: {0} ml → {1} ml
 preview_result_pours,Pitcher pours (equiv.): {0}
-preview_max_volume,Current stock can filter up to {0} ml of this water to {1}.
+preview_max_volume,Up to {0} ml → {1}
 preview_max_already,Already at the target grade.
 preview_max_impossible,Cannot reach this target. Ceiling is {0}.
 preview_confirm,Filter
 preview_cancel,Cancel
+preview_ceiling,Filter ceiling
+tier_ceiling_reached,{0} ({1}): already there
+tier_ceiling_ok,{0} ({1}): reachable, uses {2} durability
+tier_ceiling_short,{0} ({1}): not enough durability, short {2}
+tier_ceiling_impossible,{0}: no filter left that can raise purity.
 tip_stop_at_tier,Stops at the grade threshold. Extra durability is not spent.
+tip_ceiling,Filters until they cannot raise purity further. A stock purifier caps at 99.01% (high-quality) per cycle; pure water needs quality modules. The machine does nothing if the water is already above its cap.
 
 warn_no_filter,No usable filters (or UV lamp) in the current search scope.
 warn_unfilterable,Remaining contaminants: {0}. Ceiling: {1}.

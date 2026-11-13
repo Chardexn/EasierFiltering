@@ -64,7 +64,7 @@ namespace EasierFiltering
 
             builder
                 .UseMachineryStyle()
-                .SetSize(480, 448)
+                .SetSize(480, 560)
                 .SetDraggable(true)
                 .SetCloseOnEscape(true)
                 .OnClose(ClearState);
@@ -93,8 +93,12 @@ namespace EasierFiltering
             }
 
             builder.End()
+                .BeginRow()
+                    .AddButton("", () => OnTierSelected(FilterSimulator.CeilingIndex), "tier_" + FilterSimulator.CeilingIndex)
+                .End()
                 .AddLabel("", "tier_status");
             AddTip(builder, "tip_stop_at_tier");
+            AddTip(builder, "tip_ceiling");
             builder.End();
 
             builder.BeginPanel(-1f, -1f, TextAnchor.UpperLeft, 8f, 4f, "panel_result")
@@ -124,13 +128,15 @@ namespace EasierFiltering
                 return;
             }
 
-            _selectedIndex = index;
-            _target = WaterFeatureHelper.WATER_PURITIES[index];
             FilterTierInfo info = FindTier(index);
-            FilterSimResult result = info != null
-                ? info.Result
-                : FilterSimulator.Simulate(_container, _stock, _target);
-            Paint(_window, result);
+            if (info == null)
+            {
+                return;
+            }
+
+            _selectedIndex = index;
+            _target = info.Threshold;
+            Paint(_window, info.Result);
         }
 
         private static void AddTip(CustomUIBuilder builder, string key)
@@ -157,6 +163,9 @@ namespace EasierFiltering
             PaintStock(window, result);
             PaintTiers(window);
             SetText(window, "tier_status", TierStatusLine());
+            bool ceiling = FilterSimulator.IsCeiling(_selectedIndex);
+            SetWarning(window, "tip_stop_at_tier", !ceiling, ModEntry.L("tip_stop_at_tier"));
+            SetWarning(window, "tip_ceiling", ceiling, ModEntry.L("tip_ceiling"));
             SetText(window, "result_purity", ModEntry.L(
                 "preview_result_purity",
                 FilterSimulator.FormatPurity(result.PurityBefore),
@@ -170,40 +179,73 @@ namespace EasierFiltering
             SetText(window, "max_volume", MaxVolumeLine(result));
             PaintWarning(window, result);
             window.Get("btn_confirm")?.SetInteractable(!result.NoChange && _container != null);
+            FitWindow(window);
+        }
+
+        private static void FitWindow(CustomUIWindow window)
+        {
+            RectTransform content = window?.ContentRoot;
+            if (content == null || window.Rect == null)
+            {
+                return;
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+            float preferred = LayoutUtility.GetPreferredHeight(content);
+            if (preferred < 1f)
+            {
+                return;
+            }
+
+            const float header = 40f;
+            const float rule = 2f;
+            const float pad = 16f;
+            float height = Mathf.Clamp(preferred + header + rule + pad * 2f, 360f, 720f);
+            window.SetSize(480f, height);
         }
 
         private static void PaintTiers(CustomUIWindow window)
         {
+            PaintTierButton(window, FilterSimulator.CeilingIndex);
             foreach (int index in TierButtonOrder)
             {
-                CustomUIElement button = window.Get("tier_" + index);
-                if (button == null)
-                {
-                    continue;
-                }
-
-                FilterTierInfo info = FindTier(index);
-                FilterTierKind kind = info != null ? info.Kind : FilterTierKind.Impossible;
-                bool selected = index == _selectedIndex;
-                string name = WaterFeatureHelper.WATER_DISPLAY_LOCALIZED[index];
-                if (kind == FilterTierKind.Reached)
-                {
-                    name += ModEntry.L("tier_mark_reached");
-                }
-                else if (kind == FilterTierKind.Impossible)
-                {
-                    name += ModEntry.L("tier_mark_impossible");
-                }
-
-                if (selected)
-                {
-                    name = "> " + name;
-                }
-
-                button.SetText(name);
-                bool interactable = !selected && kind != FilterTierKind.Reached && kind != FilterTierKind.Impossible;
-                button.SetInteractable(interactable);
+                PaintTierButton(window, index);
             }
+        }
+
+        private static void PaintTierButton(CustomUIWindow window, int index)
+        {
+            CustomUIElement button = window.Get("tier_" + index);
+            if (button == null)
+            {
+                return;
+            }
+
+            FilterTierInfo info = FindTier(index);
+            FilterTierKind kind = info != null ? info.Kind : FilterTierKind.Impossible;
+            bool selected = index == _selectedIndex;
+            bool locked = kind == FilterTierKind.Reached || kind == FilterTierKind.Impossible;
+            string name = FilterSimulator.IsCeiling(index)
+                ? ModEntry.L("preview_ceiling")
+                : WaterFeatureHelper.WATER_DISPLAY_LOCALIZED[index];
+            if (!selected && kind == FilterTierKind.Reached)
+            {
+                name += ModEntry.L("tier_mark_reached");
+            }
+            else if (!selected && kind == FilterTierKind.Impossible)
+            {
+                name += ModEntry.L("tier_mark_impossible");
+            }
+
+            if (selected)
+            {
+                name = "> " + name;
+            }
+
+            button.SetText(name);
+            button.SetTextColor(MachineryStyle.BUTTON_TEXT);
+            button.SetInteractable(selected || !locked);
         }
 
         private static void PaintStock(CustomUIWindow window, FilterSimResult result)
@@ -450,6 +492,23 @@ namespace EasierFiltering
                 return "";
             }
 
+            if (FilterSimulator.IsCeiling(info.Index))
+            {
+                string ceilingName = ModEntry.L("preview_ceiling");
+                string ceilingPurity = FilterSimulator.FormatPurity(info.Threshold);
+                switch (info.Kind)
+                {
+                    case FilterTierKind.Reached:
+                        return ModEntry.L("tier_ceiling_reached", ceilingName, ceilingPurity);
+                    case FilterTierKind.Ok:
+                        return ModEntry.L("tier_ceiling_ok", ceilingName, ceilingPurity, info.Result.DurabilityConsumed);
+                    case FilterTierKind.Short:
+                        return ModEntry.L("tier_ceiling_short", ceilingName, ceilingPurity, info.Result.DurabilityShortfall);
+                    default:
+                        return ModEntry.L("tier_ceiling_impossible", ceilingName);
+                }
+            }
+
             string name = WaterFeatureHelper.WATER_DISPLAY_LOCALIZED[info.Index];
             string range = FilterSimulator.TierThresholdLabel(info.Threshold);
             switch (info.Kind)
@@ -484,10 +543,10 @@ namespace EasierFiltering
                 return ModEntry.L("preview_max_impossible", FilterSimulator.FormatPurity(result.TheoreticalMaxPurity));
             }
 
-            return ModEntry.L(
-                "preview_max_volume",
-                result.MaxFilterableMl,
-                FilterSimulator.QualityName(result.TargetPurity));
+            string targetName = FilterSimulator.IsCeiling(_selectedIndex)
+                ? FilterSimulator.FormatPurity(result.TargetPurity)
+                : FilterSimulator.QualityName(result.TargetPurity);
+            return ModEntry.L("preview_max_volume", result.MaxFilterableMl, targetName);
         }
 
         private static FilterTierInfo FindTier(int index)

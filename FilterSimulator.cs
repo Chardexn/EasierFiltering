@@ -54,8 +54,14 @@ namespace EasierFiltering
         public const int MaxPasses = 100;
         public const int MaxTicksPerLiquid = 10000;
         public const int PitcherCapacityUl = 3000000;
+        public const int CeilingIndex = -1;
 
         private static readonly int[] PreviewTierIndices = { 2, 1, 0 };
+
+        public static bool IsCeiling(int index)
+        {
+            return index == CeilingIndex;
+        }
 
         #region MARK: 入口
         public static FilterSimResult Simulate(GameItem container, FilterStock stock, int targetPurity)
@@ -117,12 +123,14 @@ namespace EasierFiltering
         public static FilterTierInfo[] EvaluateTiers(int[] sourceParts, FilterStock stock)
         {
             int current = PurityOf(sourceParts);
-            FilterTierInfo[] infos = new FilterTierInfo[PreviewTierIndices.Length];
+            FilterTierInfo[] infos = new FilterTierInfo[PreviewTierIndices.Length + 1];
+            int theoreticalMax = 0;
             for (int i = 0; i < PreviewTierIndices.Length; i++)
             {
                 int index = PreviewTierIndices[i];
                 int threshold = WaterFeatureHelper.WATER_PURITIES[index];
                 FilterSimResult result = Simulate(sourceParts, stock, threshold);
+                theoreticalMax = result.TheoreticalMaxPurity;
                 FilterTierKind kind;
                 if (current >= threshold)
                 {
@@ -150,7 +158,39 @@ namespace EasierFiltering
                 };
             }
 
+            infos[PreviewTierIndices.Length] = EvaluateCeiling(sourceParts, stock, current, theoreticalMax);
             return infos;
+        }
+
+        private static FilterTierInfo EvaluateCeiling(int[] sourceParts, FilterStock stock, int current, int theoreticalMax)
+        {
+            int target = Mathf.Max(current, theoreticalMax);
+            FilterSimResult result = Simulate(sourceParts, stock, target);
+            FilterTierKind kind;
+            if (result.NoMechanicalFilters && !result.HasUv)
+            {
+                kind = FilterTierKind.Impossible;
+            }
+            else if (current >= theoreticalMax || result.NoChange)
+            {
+                kind = FilterTierKind.Reached;
+            }
+            else if (result.DurabilityShortfall > 0)
+            {
+                kind = FilterTierKind.Short;
+            }
+            else
+            {
+                kind = FilterTierKind.Ok;
+            }
+
+            return new FilterTierInfo
+            {
+                Index = CeilingIndex,
+                Threshold = target,
+                Kind = kind,
+                Result = result
+            };
         }
 
         public static FilterTierInfo PickDefaultTier(FilterTierInfo[] infos)
@@ -158,8 +198,19 @@ namespace EasierFiltering
             FilterTierInfo bestOk = null;
             FilterTierInfo lowestShort = null;
             FilterTierInfo bestReached = null;
+            FilterTierInfo fallback = null;
             foreach (FilterTierInfo info in infos)
             {
+                if (IsCeiling(info.Index))
+                {
+                    continue;
+                }
+
+                if (fallback == null)
+                {
+                    fallback = info;
+                }
+
                 if (info.Kind == FilterTierKind.Ok && (bestOk == null || info.Threshold > bestOk.Threshold))
                 {
                     bestOk = info;
@@ -176,7 +227,7 @@ namespace EasierFiltering
                 }
             }
 
-            return bestOk ?? lowestShort ?? bestReached ?? infos[0];
+            return bestOk ?? lowestShort ?? bestReached ?? fallback ?? infos[0];
         }
         #endregion
 
