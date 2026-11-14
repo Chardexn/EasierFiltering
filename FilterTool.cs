@@ -17,7 +17,7 @@ namespace EasierFiltering
             item.name = ModEntry.L("tool_name");
             item.shortDescription = ModEntry.L("tool_desc");
             item.flavorText = ModEntry.L("tool_flavor");
-            item.unitValue = 50L;
+            item.unitValue = 300L;
             item.SetGameItemType(TypeHelper.TOOL);
             item.SetGameItemType(TypeHelper.WATER_PURIFICATION_SUPPLY);
             item.SetSpriteAndShapeFromMod(ModEntry.MOD_ID, "filter_tool");
@@ -51,38 +51,9 @@ namespace EasierFiltering
         {
             if (item != null)
             {
+                item.unitValue = 300L;
                 item.SetSpriteAndShapeFromMod(ModEntry.MOD_ID, "filter_tool");
             }
-        }
-        #endregion
-
-        #region MARK: 读档赠送
-        public static void TryGrantOnLoad()
-        {
-            if (!FilterConfig.GrantToolOnLoad.Value)
-            {
-                return;
-            }
-
-            if (PlayerStore.Instance == null || EmporiumEntry.Instance == null)
-            {
-                return;
-            }
-
-            if (PlayerStore.Instance.IsPlayerOwnThisItem(ITEM_ID))
-            {
-                return;
-            }
-
-            GameItem tool = ModHelper.SpawnItem(ITEM_ID);
-            if (tool == null)
-            {
-                ModEntry.Instance?.Log.Error("Failed to spawn filter tool.");
-                return;
-            }
-
-            Place(tool);
-            ModEntry.Instance?.Log.Log("Granted filter tool to back counter.");
         }
         #endregion
 
@@ -91,6 +62,14 @@ namespace EasierFiltering
         {
             ModHelper.AddDebugFunction(ModEntry.MOD_ID, ModHelper.DEBUG_CATEGORY_SPAWN, "Spawn Filter Tool",
                 () => Place(ModHelper.SpawnItem(ITEM_ID)));
+            ModHelper.AddDebugFunction(ModEntry.MOD_ID, ModHelper.DEBUG_CATEGORY_SPAWN, "Offer Filter Tool (Jackson)",
+                () =>
+                {
+                    if (PlayerStore.Instance != null)
+                    {
+                        PlayerStore.Instance.AddDirectSellingItemToTable(ITEM_ID);
+                    }
+                });
             ModHelper.AddDebugFunction(ModEntry.MOD_ID, ModHelper.DEBUG_CATEGORY_SPAWN, "Spawn Water Filters x4",
                 () =>
                 {
@@ -103,6 +82,8 @@ namespace EasierFiltering
                 () => Place(ModHelper.SpawnItem("water_filter_adv")));
             ModHelper.AddDebugFunction(ModEntry.MOD_ID, ModHelper.DEBUG_CATEGORY_SPAWN, "Spawn UV Lamp",
                 () => Place(ModHelper.SpawnItem("uv_filter")));
+            ModHelper.AddDebugFunction(ModEntry.MOD_ID, ModHelper.DEBUG_CATEGORY_SPAWN, "Spawn Tablet Box",
+                () => Place(PreBuiltItemHelper.FullWaterPurificationTabletBox()));
             ModHelper.AddDebugFunction(ModEntry.MOD_ID, ModHelper.DEBUG_CATEGORY_SPAWN, "Spawn Dirty Water Jug",
                 () =>
                 {

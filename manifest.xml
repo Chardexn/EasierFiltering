@@ -3,8 +3,8 @@
   <ID>easier_filtering</ID>
   <Name>更简单的过滤</Name>
   <Author>kirkxia</Author>
-  <ModVersion>1.0</ModVersion>
-  <Description>对任意装水容器一次性过滤：自动使用仓库中的过滤器（优先高级），并在执行前预览耐久消耗与结果纯净度。</Description>
+  <ModVersion>1.1</ModVersion>
+  <Description>对任意装水容器一次性过滤。默认整罐滤一次，也可滤到优质水/纯水；预览能去掉多少杂质。解锁水资源交易后可向杰克逊博士或退休水商购买工具。</Description>
   <GameVersions>
     <Version>1.0.0.13</Version>
   </GameVersions>

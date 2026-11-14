@@ -23,9 +23,10 @@ namespace EasierFiltering
         public static ConfigEntry<SearchScope> SearchScopeEntry { get; private set; }
         public static ConfigEntry<DepletedDestination> DepletedDestinationEntry { get; private set; }
         public static ConfigEntry<bool> UseUv { get; private set; }
+        public static ConfigEntry<bool> UseTablets { get; private set; }
+        public static ConfigEntry<bool> UseBottleDrag { get; private set; }
         public static ConfigEntry<bool> UseRealDurability { get; private set; }
         public static ConfigEntry<bool> IncludeFabric { get; private set; }
-        public static ConfigEntry<bool> GrantToolOnLoad { get; private set; }
 
         public static SearchScope SearchScope => SearchScopeEntry.Value;
         public static DepletedDestination DepletedDestination => DepletedDestinationEntry.Value;
@@ -51,11 +52,25 @@ namespace EasierFiltering
                 () => ModEntry.L("cfg_depleted_tip"));
 
             UseUv = cfg.Define(
-                "use_uv",
-                true,
+                "auto_use_uv",
+                false,
                 section,
                 () => ModEntry.L("cfg_use_uv"),
                 () => ModEntry.L("cfg_use_uv_tip"));
+
+            UseTablets = cfg.Define(
+                "use_tablets",
+                false,
+                section,
+                () => ModEntry.L("cfg_use_tablets"),
+                () => ModEntry.L("cfg_use_tablets_tip"));
+
+            UseBottleDrag = cfg.Define(
+                "bottle_drag",
+                false,
+                section,
+                () => ModEntry.L("cfg_bottle_drag"),
+                () => ModEntry.L("cfg_bottle_drag_tip"));
 
             UseRealDurability = cfg.Define(
                 "use_real_durability",
@@ -70,13 +85,6 @@ namespace EasierFiltering
                 section,
                 () => ModEntry.L("cfg_fabric"),
                 () => ModEntry.L("cfg_fabric_tip"));
-
-            GrantToolOnLoad = cfg.Define(
-                "grant_tool_on_load",
-                true,
-                section,
-                () => ModEntry.L("cfg_grant"),
-                () => ModEntry.L("cfg_grant_tip"));
         }
         #endregion
     }

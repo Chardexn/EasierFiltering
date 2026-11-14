@@ -26,14 +26,12 @@ namespace EasierFiltering
         public void OnEnable()
         {
             ModHook.OnModItemDirectoryInit += RegisterItems;
-            ModHook.OnGameLoadedNormal += OnGameLoaded;
             FilterTool.RegisterDebugFunctions();
         }
 
         public void OnDisable()
         {
             ModHook.OnModItemDirectoryInit -= RegisterItems;
-            ModHook.OnGameLoadedNormal -= OnGameLoaded;
             ModHelper.RemoveDebugFunctions(MOD_ID);
         }
         #endregion
@@ -42,11 +40,6 @@ namespace EasierFiltering
         private void RegisterItems(ModItemDirectory dir)
         {
             dir.Add(FilterTool.ITEM_ID, FilterTool.Create);
-        }
-
-        private void OnGameLoaded()
-        {
-            FilterTool.TryGrantOnLoad();
         }
         #endregion
 

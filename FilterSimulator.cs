@@ -21,6 +21,15 @@ namespace EasierFiltering
         public FilterSimResult Result;
     }
 
+    internal sealed class ImpurityDelta
+    {
+        public string Name;
+        public int BeforeUl;
+        public int AfterUl;
+        public bool Unfilterable;
+        public int RemovedUl => Math.Max(0, BeforeUl - AfterUl);
+    }
+
     internal sealed class FilterSimResult
     {
         public int[] PartsBefore;
@@ -35,15 +44,27 @@ namespace EasierFiltering
         public int TheoreticalMaxPurity;
         public List<string> UnfilterableNames = new List<string>();
         public List<FilterSnapshot> FiltersAfter = new List<FilterSnapshot>();
+        public List<ImpurityDelta> ImpurityDeltas = new List<ImpurityDelta>();
+        public int ImpurityBeforeUl;
+        public int ImpurityAfterUl;
+        public int ImpurityRemovedUl;
         public int DurabilityConsumed;
         public int FiltersDepleted;
         public bool ReachedTarget;
         public bool HasUv;
         public bool UsedUv;
+        public int TabletsConsumed;
         public int MaxFilterableMl;
         public int DurabilityShortfall;
         public bool NoMechanicalFilters;
         public bool NoChange;
+        public bool IsOnePass;
+    }
+
+    internal struct FilterAddons
+    {
+        public bool Uv;
+        public bool Tablets;
     }
 
     /// <summary>
@@ -54,20 +75,21 @@ namespace EasierFiltering
         public const int MaxPasses = 100;
         public const int MaxTicksPerLiquid = 10000;
         public const int PitcherCapacityUl = 3000000;
-        public const int CeilingIndex = -1;
+        public const int DefaultIndex = -2;
+        public const int ChlorinePerTabletUl = 15000;
 
-        private static readonly int[] PreviewTierIndices = { 2, 1, 0 };
+        private static readonly int[] PreviewTierIndices = { 1, 0 };
 
-        public static bool IsCeiling(int index)
+        public static bool IsDefault(int index)
         {
-            return index == CeilingIndex;
+            return index == DefaultIndex;
         }
 
         #region MARK: 入口
-        public static FilterSimResult Simulate(GameItem container, FilterStock stock, int targetPurity)
+        public static FilterSimResult Simulate(GameItem container, FilterStock stock, int targetPurity, FilterAddons addons = default)
         {
             int[] parts = WaterHelper.GetLiquidParts(container);
-            return Simulate(parts, stock, targetPurity);
+            return Simulate(parts, stock, targetPurity, addons);
         }
 
         public static int[] ApplyOnePassForTest(int[] sourceParts, List<FilterSnapshot> filters)
@@ -83,7 +105,7 @@ namespace EasierFiltering
             return parts;
         }
 
-        public static FilterSimResult Simulate(int[] sourceParts, FilterStock stock, int targetPurity)
+        public static FilterSimResult Simulate(int[] sourceParts, FilterStock stock, int targetPurity, FilterAddons addons = default)
         {
             int[] partsBefore = (int[])sourceParts.Clone();
             List<FilterSnapshot> working = stock.Filters
@@ -92,12 +114,13 @@ namespace EasierFiltering
                 .ToList();
             working = FilterInventory.SortForUse(working);
 
-            bool hasUv = FilterConfig.UseUv.Value && stock.HasUv;
+            bool hasUv = addons.Uv && stock.HasUv;
+            int tabletCount = addons.Tablets ? stock.TabletCount : 0;
             int[] parts = (int[])partsBefore.Clone();
             bool usedUv = ApplyUv(parts, hasUv);
 
-            int theoreticalMax = ComputeTheoreticalMaxPurity(partsBefore, working, hasUv);
-            List<string> unfilterable = ListUnfilterableNames(partsBefore, working, hasUv);
+            int theoreticalMax = ComputeTheoreticalMaxPurity(partsBefore, working, hasUv, tabletCount);
+            List<string> unfilterable = ListUnfilterableNames(partsBefore, working, hasUv, tabletCount > 0);
 
             int clampedTarget = Mathf.Clamp(targetPurity, PurityOf(partsBefore), 10000);
             int passes = 0;
@@ -109,28 +132,64 @@ namespace EasierFiltering
                 pours = outcome.PitcherPours;
             }
 
-            FilterSimResult result = BuildResult(partsBefore, parts, working, clampedTarget, theoreticalMax, unfilterable, hasUv, usedUv, passes, pours);
+            int tablets = addons.Tablets ? ApplyTablets(parts, stock.TabletCount) : 0;
+            FilterSimResult result = BuildResult(partsBefore, parts, working, clampedTarget, theoreticalMax, unfilterable, hasUv, usedUv, passes, pours, onePass: false, tablets);
             result.DurabilityShortfall = ComputeShortfall(partsBefore, working, stock, hasUv, clampedTarget, result);
             result.MaxFilterableMl = ComputeMaxFilterableMl(partsBefore, stock, hasUv, clampedTarget, theoreticalMax);
             return result;
         }
 
-        public static FilterTierInfo[] EvaluateTiers(GameItem container, FilterStock stock)
+        public static FilterSimResult SimulateOnePass(GameItem container, FilterStock stock, FilterAddons addons = default)
         {
-            return EvaluateTiers(WaterHelper.GetLiquidParts(container), stock);
+            int[] parts = WaterHelper.GetLiquidParts(container);
+            return SimulateOnePass(parts, stock, addons);
         }
 
-        public static FilterTierInfo[] EvaluateTiers(int[] sourceParts, FilterStock stock)
+        public static FilterSimResult SimulateOnePass(int[] sourceParts, FilterStock stock, FilterAddons addons = default)
+        {
+            int[] partsBefore = (int[])sourceParts.Clone();
+            List<FilterSnapshot> working = stock.Filters
+                .Where(f => f.Durability > 0)
+                .Select(f => f.Clone())
+                .ToList();
+            working = FilterInventory.SortForUse(working);
+
+            bool hasUv = addons.Uv && stock.HasUv;
+            int tabletCount = addons.Tablets ? stock.TabletCount : 0;
+            int[] parts = (int[])partsBefore.Clone();
+            bool usedUv = ApplyUv(parts, hasUv);
+            int theoreticalMax = ComputeTheoreticalMaxPurity(partsBefore, working, hasUv, tabletCount);
+            List<string> unfilterable = ListUnfilterableNames(partsBefore, working, hasUv, tabletCount > 0);
+
+            int[] beforePass = (int[])parts.Clone();
+            int volumeBefore = Sum(beforePass);
+            RunOnePassVanilla(parts, working);
+            int tablets = addons.Tablets ? ApplyTablets(parts, stock.TabletCount) : 0;
+            bool changed = !SameParts(beforePass, parts) || usedUv || tablets > 0;
+            int passes = changed ? 1 : 0;
+            int pours = SameParts(beforePass, parts) ? 0 : PitcherPoursForVolume(volumeBefore);
+
+            FilterSimResult result = BuildResult(partsBefore, parts, working, PurityOf(parts), theoreticalMax, unfilterable, hasUv, usedUv, passes, pours, onePass: true, tablets);
+            result.DurabilityShortfall = ComputeOnePassShortfall(partsBefore, working, stock, hasUv, result);
+            result.ReachedTarget = result.DurabilityShortfall <= 0;
+            return result;
+        }
+
+        public static FilterTierInfo[] EvaluateTiers(GameItem container, FilterStock stock, FilterAddons addons = default)
+        {
+            return EvaluateTiers(WaterHelper.GetLiquidParts(container), stock, addons);
+        }
+
+        public static FilterTierInfo[] EvaluateTiers(int[] sourceParts, FilterStock stock, FilterAddons addons = default)
         {
             int current = PurityOf(sourceParts);
             FilterTierInfo[] infos = new FilterTierInfo[PreviewTierIndices.Length + 1];
-            int theoreticalMax = 0;
+            infos[0] = EvaluateDefault(sourceParts, stock, addons);
             for (int i = 0; i < PreviewTierIndices.Length; i++)
             {
                 int index = PreviewTierIndices[i];
                 int threshold = WaterFeatureHelper.WATER_PURITIES[index];
-                FilterSimResult result = Simulate(sourceParts, stock, threshold);
-                theoreticalMax = result.TheoreticalMaxPurity;
+                FilterSimResult result = Simulate(sourceParts, stock, threshold, addons);
                 FilterTierKind kind;
                 if (current >= threshold)
                 {
@@ -144,12 +203,16 @@ namespace EasierFiltering
                 {
                     kind = FilterTierKind.Ok;
                 }
-                else
+                else if (result.DurabilityShortfall > 0)
                 {
                     kind = FilterTierKind.Short;
                 }
+                else
+                {
+                    kind = FilterTierKind.Impossible;
+                }
 
-                infos[i] = new FilterTierInfo
+                infos[i + 1] = new FilterTierInfo
                 {
                     Index = index,
                     Threshold = threshold,
@@ -158,20 +221,18 @@ namespace EasierFiltering
                 };
             }
 
-            infos[PreviewTierIndices.Length] = EvaluateCeiling(sourceParts, stock, current, theoreticalMax);
             return infos;
         }
 
-        private static FilterTierInfo EvaluateCeiling(int[] sourceParts, FilterStock stock, int current, int theoreticalMax)
+        private static FilterTierInfo EvaluateDefault(int[] sourceParts, FilterStock stock, FilterAddons addons)
         {
-            int target = Mathf.Max(current, theoreticalMax);
-            FilterSimResult result = Simulate(sourceParts, stock, target);
+            FilterSimResult result = SimulateOnePass(sourceParts, stock, addons);
             FilterTierKind kind;
-            if (result.NoMechanicalFilters && !result.HasUv)
+            if (result.NoMechanicalFilters && !result.HasUv && result.TabletsConsumed <= 0 && !addons.Uv && !addons.Tablets)
             {
                 kind = FilterTierKind.Impossible;
             }
-            else if (current >= theoreticalMax || result.NoChange)
+            else if (result.NoChange)
             {
                 kind = FilterTierKind.Reached;
             }
@@ -186,8 +247,8 @@ namespace EasierFiltering
 
             return new FilterTierInfo
             {
-                Index = CeilingIndex,
-                Threshold = target,
+                Index = DefaultIndex,
+                Threshold = result.PurityAfter,
                 Kind = kind,
                 Result = result
             };
@@ -195,39 +256,20 @@ namespace EasierFiltering
 
         public static FilterTierInfo PickDefaultTier(FilterTierInfo[] infos)
         {
-            FilterTierInfo bestOk = null;
-            FilterTierInfo lowestShort = null;
-            FilterTierInfo bestReached = null;
-            FilterTierInfo fallback = null;
+            if (infos == null || infos.Length == 0)
+            {
+                return null;
+            }
+
             foreach (FilterTierInfo info in infos)
             {
-                if (IsCeiling(info.Index))
+                if (IsDefault(info.Index))
                 {
-                    continue;
-                }
-
-                if (fallback == null)
-                {
-                    fallback = info;
-                }
-
-                if (info.Kind == FilterTierKind.Ok && (bestOk == null || info.Threshold > bestOk.Threshold))
-                {
-                    bestOk = info;
-                }
-
-                if (info.Kind == FilterTierKind.Short && (lowestShort == null || info.Threshold < lowestShort.Threshold))
-                {
-                    lowestShort = info;
-                }
-
-                if (info.Kind == FilterTierKind.Reached && (bestReached == null || info.Threshold > bestReached.Threshold))
-                {
-                    bestReached = info;
+                    return info;
                 }
             }
 
-            return bestOk ?? lowestShort ?? bestReached ?? fallback ?? infos[0];
+            return infos[0];
         }
         #endregion
 
@@ -452,7 +494,82 @@ namespace EasierFiltering
             return true;
         }
 
-        private static int ComputeTheoreticalMaxPurity(int[] sourceParts, List<FilterSnapshot> filters, bool hasUv)
+        private static int ApplyTablets(int[] parts, int available)
+        {
+            if (available <= 0)
+            {
+                return 0;
+            }
+
+            int microbeIndex = IndexOf(Liquid.LIQUID_MICROBE);
+            int chemIndex = IndexOf(Liquid.LIQUID_CHEMICAL_CONTAMINANT);
+            int used = 0;
+            while (used < available)
+            {
+                int microbes = microbeIndex >= 0 && microbeIndex < parts.Length ? parts[microbeIndex] : 0;
+                int chem = chemIndex >= 0 && chemIndex < parts.Length ? parts[chemIndex] : 0;
+                int[] probe = (int[])parts.Clone();
+                ApplyOneTablet(probe);
+                int microbesAfter = microbeIndex >= 0 && microbeIndex < probe.Length ? probe[microbeIndex] : 0;
+                int chemAfter = chemIndex >= 0 && chemIndex < probe.Length ? probe[chemIndex] : 0;
+                if (microbesAfter >= microbes && chemAfter >= chem)
+                {
+                    break;
+                }
+
+                for (int i = 0; i < parts.Length && i < probe.Length; i++)
+                {
+                    parts[i] = probe[i];
+                }
+
+                used++;
+            }
+
+            return used;
+        }
+
+        private static void ApplyOneTablet(int[] parts)
+        {
+            int chlorineIndex = IndexOf(Liquid.LIQUID_CHLORINE);
+            int microbeIndex = IndexOf(Liquid.LIQUID_MICROBE);
+            int chemIndex = IndexOf(Liquid.LIQUID_CHEMICAL_CONTAMINANT);
+            int waterIndex = IndexOf(Liquid.LIQUID_WATER);
+            if (chlorineIndex < 0 || waterIndex < 0 || chlorineIndex >= parts.Length || waterIndex >= parts.Length)
+            {
+                return;
+            }
+
+            if (parts[waterIndex] <= 0)
+            {
+                return;
+            }
+
+            parts[chlorineIndex] += ChlorinePerTabletUl;
+            int chlorine = parts[chlorineIndex];
+            int microbes = microbeIndex >= 0 && microbeIndex < parts.Length ? parts[microbeIndex] : 0;
+            int chem = chemIndex >= 0 && chemIndex < parts.Length ? parts[chemIndex] : 0;
+            int reacted = Math.Min(chlorine, ChlorinePerTabletUl);
+            long budget = (long)(reacted * 5.1);
+            int total = Sum(parts);
+            int chemFloor = (int)(total * 0.007f);
+            int chemRemoved = chem > chemFloor ? (int)Math.Min(chem - chemFloor, budget) : 0;
+            budget -= chemRemoved;
+            int microbesDestroyed = (int)Math.Min(microbes, budget);
+            int chlorineAfter = chlorine - reacted;
+            int selfDegraded = Math.Min(chlorineAfter, Math.Max(1000, (int)(chlorineAfter * 0.2)));
+            parts[chlorineIndex] = Math.Max(0, chlorineAfter - selfDegraded);
+            if (microbeIndex >= 0 && microbeIndex < parts.Length)
+            {
+                parts[microbeIndex] = Math.Max(0, microbes - microbesDestroyed);
+            }
+
+            if (chemIndex >= 0 && chemIndex < parts.Length)
+            {
+                parts[chemIndex] = Math.Max(0, chem - chemRemoved);
+            }
+        }
+
+        private static int ComputeTheoreticalMaxPurity(int[] sourceParts, List<FilterSnapshot> filters, bool hasUv, int tabletCount)
         {
             int[] parts = (int[])sourceParts.Clone();
             ApplyUv(parts, hasUv);
@@ -460,16 +577,21 @@ namespace EasierFiltering
             for (int i = 0; i < Liquid.Liquids.Count && i < parts.Length; i++)
             {
                 Liquid liquid = Liquid.Liquids[i];
-                if (CanEverFilter(liquid, bestPore, hasUv))
+                if (CanEverFilter(liquid, bestPore, hasUv, useTablets: false))
                 {
                     parts[i] = 0;
                 }
             }
 
+            if (tabletCount > 0)
+            {
+                ApplyTablets(parts, tabletCount);
+            }
+
             return PurityOf(parts);
         }
 
-        private static List<string> ListUnfilterableNames(int[] parts, List<FilterSnapshot> filters, bool hasUv)
+        private static List<string> ListUnfilterableNames(int[] parts, List<FilterSnapshot> filters, bool hasUv, bool useTablets)
         {
             List<string> names = new List<string>();
             int bestPore = BestPore(filters);
@@ -486,7 +608,7 @@ namespace EasierFiltering
                     continue;
                 }
 
-                if (!CanEverFilter(liquid, bestPore, hasUv))
+                if (!CanEverFilter(liquid, bestPore, hasUv, useTablets))
                 {
                     names.Add(liquid.displayName);
                 }
@@ -495,7 +617,7 @@ namespace EasierFiltering
             return names;
         }
 
-        private static bool CanEverFilter(Liquid liquid, int bestPore, bool hasUv)
+        private static bool CanEverFilter(Liquid liquid, int bestPore, bool hasUv, bool useTablets)
         {
             if (liquid.identifier == Liquid.LIQUID_WATER)
             {
@@ -504,7 +626,12 @@ namespace EasierFiltering
 
             if (liquid.identifier == Liquid.LIQUID_MICROBE)
             {
-                return hasUv;
+                return hasUv || useTablets;
+            }
+
+            if (liquid.identifier == Liquid.LIQUID_CHEMICAL_CONTAMINANT)
+            {
+                return false;
             }
 
             return bestPore > 0 && bestPore <= liquid.particleSize;
@@ -546,6 +673,33 @@ namespace EasierFiltering
             ApplyUv(parts, hasUv);
             RunPasses(parts, working, target);
             int needed = working.Sum(f => Math.Max(0, f.DurabilityBefore - f.Durability));
+            return Mathf.Max(0, needed - available);
+        }
+
+        private static int ComputeOnePassShortfall(
+            int[] partsBefore,
+            List<FilterSnapshot> usedFilters,
+            FilterStock stock,
+            bool hasUv,
+            FilterSimResult actual)
+        {
+            if (actual.NoMechanicalFilters)
+            {
+                return 0;
+            }
+
+            FilterStock infinite = MakeInfiniteStock(stock);
+            if (infinite.Filters.Count == 0)
+            {
+                return 0;
+            }
+
+            int[] parts = (int[])partsBefore.Clone();
+            List<FilterSnapshot> working = infinite.Filters.Select(f => f.Clone()).ToList();
+            ApplyUv(parts, hasUv);
+            RunOnePassVanilla(parts, working);
+            int needed = working.Sum(f => Math.Max(0, f.DurabilityBefore - f.Durability));
+            int available = actual.DurabilityConsumed + usedFilters.Sum(f => Math.Max(0, f.Durability));
             return Mathf.Max(0, needed - available);
         }
 
@@ -673,13 +827,15 @@ namespace EasierFiltering
             bool hasUv,
             bool usedUv,
             int passes,
-            int pours)
+            int pours,
+            bool onePass,
+            int tabletsConsumed = 0)
         {
             int consumed = working.Sum(f => Math.Max(0, f.DurabilityBefore - f.Durability));
             int depleted = working.Count(f => f.DurabilityBefore > 0 && f.Durability <= 0);
             int purityBefore = PurityOf(partsBefore);
             int purityAfter = PurityOf(partsAfter);
-            return new FilterSimResult
+            FilterSimResult result = new FilterSimResult
             {
                 PartsBefore = partsBefore,
                 PartsAfter = partsAfter,
@@ -695,17 +851,68 @@ namespace EasierFiltering
                 FiltersAfter = working,
                 DurabilityConsumed = consumed,
                 FiltersDepleted = depleted,
-                ReachedTarget = purityAfter >= target,
+                ReachedTarget = onePass || purityAfter >= target,
                 HasUv = hasUv,
                 UsedUv = usedUv,
+                TabletsConsumed = tabletsConsumed,
                 NoMechanicalFilters = working.Count == 0,
-                NoChange = purityAfter == purityBefore && consumed == 0 && !usedUv
+                NoChange = purityAfter == purityBefore && consumed == 0 && !usedUv && tabletsConsumed <= 0,
+                IsOnePass = onePass
             };
+            FillImpurity(result);
+            return result;
+        }
+
+        private static void FillImpurity(FilterSimResult result)
+        {
+            int waterIndex = IndexOf(Liquid.LIQUID_WATER);
+            int beforeImp = 0;
+            int afterImp = 0;
+            HashSet<string> unfilterable = new HashSet<string>(result.UnfilterableNames ?? new List<string>());
+            int length = Math.Max(result.PartsBefore?.Length ?? 0, result.PartsAfter?.Length ?? 0);
+            for (int i = 0; i < Liquid.Liquids.Count && i < length; i++)
+            {
+                if (i == waterIndex)
+                {
+                    continue;
+                }
+
+                int before = result.PartsBefore != null && i < result.PartsBefore.Length
+                    ? Math.Max(0, result.PartsBefore[i])
+                    : 0;
+                int after = result.PartsAfter != null && i < result.PartsAfter.Length
+                    ? Math.Max(0, result.PartsAfter[i])
+                    : 0;
+                if (before <= 0 && after <= 0)
+                {
+                    continue;
+                }
+
+                beforeImp += before;
+                afterImp += after;
+                result.ImpurityDeltas.Add(new ImpurityDelta
+                {
+                    Name = Liquid.Liquids[i].displayName,
+                    BeforeUl = before,
+                    AfterUl = after,
+                    Unfilterable = unfilterable.Contains(Liquid.Liquids[i].displayName)
+                });
+            }
+
+            result.ImpurityDeltas.Sort((a, b) => b.RemovedUl.CompareTo(a.RemovedUl));
+            result.ImpurityBeforeUl = beforeImp;
+            result.ImpurityAfterUl = afterImp;
+            result.ImpurityRemovedUl = Math.Max(0, beforeImp - afterImp);
         }
 
         public static string FormatPurity(int purity)
         {
             return $"{purity / 100f:0.00}%";
+        }
+
+        public static string FormatMl(int ul)
+        {
+            return $"{ul / 1000f:0.##}";
         }
 
         public static string QualityName(int purity)

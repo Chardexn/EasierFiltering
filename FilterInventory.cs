@@ -35,8 +35,10 @@ namespace EasierFiltering
     {
         public List<FilterSnapshot> Filters = new List<FilterSnapshot>();
         public List<FilterSnapshot> UvLamps = new List<FilterSnapshot>();
+        public List<FilterSnapshot> Tablets = new List<FilterSnapshot>();
         public int TotalDurability;
         public bool HasUv => UvLamps.Count > 0;
+        public int TabletCount => Tablets.Count;
     }
 
     /// <summary>
@@ -45,6 +47,9 @@ namespace EasierFiltering
     internal static class FilterInventory
     {
         public const string WATER_FILTER_TAG = "WATER_FILTER";
+        public const string TABLET_TAG = "WATER_PURIFICATION_TABLET";
+        public const string TABLET_ID = "water_tablet";
+        public const string TABLET_BOX_ID = "water_tablet_container";
         public const string UV_FILTER_ID = "uv_filter";
         public const string ADV_FILTER_ID = "water_filter_adv";
         public const string BASIC_FILTER_ID = "water_filter";
@@ -64,7 +69,7 @@ namespace EasierFiltering
             FilterStock stock = new FilterStock();
             foreach (GameItem item in EnumerateOwnedItems())
             {
-                if (item == null || !item.IsTag(WATER_FILTER_TAG))
+                if (item == null)
                 {
                     continue;
                 }
@@ -72,6 +77,17 @@ namespace EasierFiltering
                 if (item.identifier == UV_FILTER_ID)
                 {
                     stock.UvLamps.Add(ToSnapshot(item, isUv: true));
+                    continue;
+                }
+
+                if (item.IsTag(TABLET_TAG) || item.identifier == TABLET_ID)
+                {
+                    stock.Tablets.Add(ToSnapshot(item, isUv: false));
+                    continue;
+                }
+
+                if (!item.IsTag(WATER_FILTER_TAG))
+                {
                     continue;
                 }
 
@@ -240,11 +256,37 @@ namespace EasierFiltering
                 }
             }
 
+            ConsumeTablets(result);
             WaterHelper.UpdateContainerGoodType(container);
             WaterFeatureHelper.OnLiquidChanged(container, exposeFeature: false);
             WaterFeatureHelper.SetPresumedPurity(container, result.PurityAfter);
             AudioHelper.UseWaterFilter();
             RelocateDepleted(result);
+        }
+
+        private static void ConsumeTablets(FilterSimResult result)
+        {
+            int remaining = result.TabletsConsumed;
+            if (remaining <= 0)
+            {
+                return;
+            }
+
+            foreach (GameItem item in EnumerateOwnedItems())
+            {
+                if (remaining <= 0)
+                {
+                    break;
+                }
+
+                if (item == null || (!item.IsTag(TABLET_TAG) && item.identifier != TABLET_ID))
+                {
+                    continue;
+                }
+
+                item.Destroy();
+                remaining--;
+            }
         }
 
         private static void RelocateDepleted(FilterSimResult result)

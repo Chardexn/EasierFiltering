@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -14,13 +15,15 @@ namespace EasierFiltering
         public const string WINDOW_ID = "easier_filtering.preview";
         private const int StockRowCount = 4;
         private static readonly Color TipColor = new Color(0.56f, 0.64f, 0.66f);
-        private static readonly int[] TierButtonOrder = { 2, 1, 0 };
+        private static readonly int[] TierButtonOrder = { FilterSimulator.DefaultIndex, 1, 0 };
 
         private static GameItem _container;
         private static FilterStock _stock;
         private static CustomUIWindow _window;
         private static int _target;
         private static int _selectedIndex;
+        private static bool _useUv;
+        private static bool _useTablets;
         private static FilterTierInfo[] _tiers;
         private static readonly Dictionary<string, Image> ConsumeOverlays = new Dictionary<string, Image>();
 
@@ -34,11 +37,13 @@ namespace EasierFiltering
 
             _container = container;
             _stock = FilterInventory.Collect();
-            _tiers = FilterSimulator.EvaluateTiers(container, _stock);
+            _useUv = FilterConfig.UseUv.Value && _stock.HasUv;
+            _useTablets = FilterConfig.UseTablets.Value && _stock.TabletCount > 0;
+            _tiers = FilterSimulator.EvaluateTiers(container, _stock, CurrentAddons());
             FilterTierInfo pick = FilterSimulator.PickDefaultTier(_tiers);
-            _selectedIndex = pick.Index;
-            _target = pick.Threshold;
-            Build(pick.Result);
+            _selectedIndex = pick != null ? pick.Index : FilterSimulator.DefaultIndex;
+            _target = pick != null ? pick.Threshold : 0;
+            Build(pick != null ? pick.Result : FilterSimulator.SimulateOnePass(container, _stock, CurrentAddons()));
         }
         #endregion
 
@@ -71,6 +76,11 @@ namespace EasierFiltering
 
             builder.AddLabel(ContainerLine(), "container_info");
 
+            builder.BeginPanel(-1f, -1f, TextAnchor.UpperLeft, 6f, 2f, "addons");
+            AddAddonRow(builder, "opt_uv", v => OnAddonToggled(uv: true, v));
+            AddAddonRow(builder, "opt_tablets", v => OnAddonToggled(uv: false, v));
+            builder.End();
+
             builder.BeginPanel(-1f, -1f, TextAnchor.UpperLeft, 8f, 4f, "panel_stock")
                 .AddHeader(ModEntry.L("preview_stock"), "header_stock")
                 .AddLabel("", "stock_empty");
@@ -81,6 +91,7 @@ namespace EasierFiltering
             }
 
             builder.AddLabel("", "stock_uv");
+            builder.AddLabel("", "stock_tablets");
             builder.End();
 
             builder.BeginPanel(-1f, -1f, TextAnchor.UpperLeft, 8f, 4f, "panel_target")
@@ -93,20 +104,16 @@ namespace EasierFiltering
             }
 
             builder.End()
-                .BeginRow()
-                    .AddButton("", () => OnTierSelected(FilterSimulator.CeilingIndex), "tier_" + FilterSimulator.CeilingIndex)
-                .End()
                 .AddLabel("", "tier_status");
+            AddTip(builder, "tip_default");
             AddTip(builder, "tip_stop_at_tier");
-            AddTip(builder, "tip_ceiling");
             builder.End();
 
             builder.BeginPanel(-1f, -1f, TextAnchor.UpperLeft, 8f, 4f, "panel_result")
                 .AddHeader(ModEntry.L("preview_result"), "header_result")
                 .AddLabel("", "result_purity")
                 .AddLabel("", "result_volume")
-                .AddLabel("", "result_pours")
-                .AddLabel("", "max_volume")
+                .AddLabel("", "result_impurity")
                 .AddWarning("", "warn_any");
             builder.End();
 
@@ -139,6 +146,108 @@ namespace EasierFiltering
             Paint(_window, info.Result);
         }
 
+        private static void OnAddonToggled(bool uv, bool value)
+        {
+            if (uv)
+            {
+                _useUv = value;
+            }
+            else
+            {
+                _useTablets = value;
+            }
+
+            RefreshAddons();
+        }
+
+        private static void RefreshAddons()
+        {
+            if (_container == null || _window == null || !_window.IsAlive)
+            {
+                return;
+            }
+
+            _stock = FilterInventory.Collect();
+            _tiers = FilterSimulator.EvaluateTiers(_container, _stock, CurrentAddons());
+            FilterTierInfo info = FindTier(_selectedIndex);
+            if (info == null || ShouldDropTier(info))
+            {
+                info = FilterSimulator.PickDefaultTier(_tiers);
+                _selectedIndex = info != null ? info.Index : FilterSimulator.DefaultIndex;
+            }
+
+            _target = info != null ? info.Threshold : _target;
+            Paint(_window, info != null ? info.Result : FilterSimulator.SimulateOnePass(_container, _stock, CurrentAddons()));
+        }
+
+        private static FilterAddons CurrentAddons()
+        {
+            return new FilterAddons
+            {
+                Uv = _useUv,
+                Tablets = _useTablets
+            };
+        }
+
+        private static bool ShouldDropTier(FilterTierInfo info)
+        {
+            return !FilterSimulator.IsDefault(info.Index)
+                && (info.Kind == FilterTierKind.Impossible || info.Kind == FilterTierKind.Reached);
+        }
+
+        private static void AddAddonRow(CustomUIBuilder builder, string id, Action<bool> onToggle)
+        {
+            builder.BeginRow(4f, TextAnchor.MiddleLeft);
+            builder.AddLabel("", id + "_label");
+            StyleAddonLabel(builder.Last);
+            builder.AddFlexibleSpace();
+            builder.AddToggle("", false, onToggle, id);
+            CompactToggle(builder.Last);
+            builder.End();
+        }
+
+        private static void StyleAddonLabel(CustomUIElement element)
+        {
+            if (element?.text == null)
+            {
+                return;
+            }
+
+            element.text.richText = true;
+            element.text.fontSize = Mathf.Max(11f, element.text.fontSize * 0.85f);
+            element.text.raycastTarget = true;
+        }
+
+        private static void CompactToggle(CustomUIElement element)
+        {
+            if (element == null)
+            {
+                return;
+            }
+
+            element.SetPreferredSize(22f, 22f);
+            if (element.root != null)
+            {
+                LayoutElement layout = element.root.GetComponent<LayoutElement>();
+                if (layout == null)
+                {
+                    layout = element.root.AddComponent<LayoutElement>();
+                }
+
+                layout.minWidth = 22f;
+                layout.minHeight = 22f;
+                layout.preferredWidth = 22f;
+                layout.preferredHeight = 22f;
+                layout.flexibleWidth = 0f;
+                layout.flexibleHeight = 0f;
+            }
+
+            if (element.text != null)
+            {
+                element.text.gameObject.SetActive(false);
+            }
+        }
+
         private static void AddTip(CustomUIBuilder builder, string key)
         {
             builder.AddLabel(ModEntry.L(key), key);
@@ -163,9 +272,10 @@ namespace EasierFiltering
             PaintStock(window, result);
             PaintTiers(window);
             SetText(window, "tier_status", TierStatusLine());
-            bool ceiling = FilterSimulator.IsCeiling(_selectedIndex);
-            SetWarning(window, "tip_stop_at_tier", !ceiling, ModEntry.L("tip_stop_at_tier"));
-            SetWarning(window, "tip_ceiling", ceiling, ModEntry.L("tip_ceiling"));
+            PaintAddons(window);
+            bool isDefault = FilterSimulator.IsDefault(_selectedIndex);
+            SetWarning(window, "tip_default", isDefault, ModEntry.L("tip_default"));
+            SetWarning(window, "tip_stop_at_tier", !isDefault, ModEntry.L("tip_stop_at_tier"));
             SetText(window, "result_purity", ModEntry.L(
                 "preview_result_purity",
                 FilterSimulator.FormatPurity(result.PurityBefore),
@@ -175,8 +285,9 @@ namespace EasierFiltering
                 "preview_result_volume",
                 result.VolumeBeforeUl / 1000,
                 result.VolumeAfterUl / 1000));
-            SetText(window, "result_pours", ModEntry.L("preview_result_pours", result.PitcherPours));
-            SetText(window, "max_volume", MaxVolumeLine(result));
+            SetText(window, "result_impurity", ImpurityLine(result));
+            ShrinkDetail(window, "result_volume");
+            ShrinkDetail(window, "result_impurity");
             PaintWarning(window, result);
             window.Get("btn_confirm")?.SetInteractable(!result.NoChange && _container != null);
             FitWindow(window);
@@ -207,7 +318,6 @@ namespace EasierFiltering
 
         private static void PaintTiers(CustomUIWindow window)
         {
-            PaintTierButton(window, FilterSimulator.CeilingIndex);
             foreach (int index in TierButtonOrder)
             {
                 PaintTierButton(window, index);
@@ -226,8 +336,8 @@ namespace EasierFiltering
             FilterTierKind kind = info != null ? info.Kind : FilterTierKind.Impossible;
             bool selected = index == _selectedIndex;
             bool locked = kind == FilterTierKind.Reached || kind == FilterTierKind.Impossible;
-            string name = FilterSimulator.IsCeiling(index)
-                ? ModEntry.L("preview_ceiling")
+            string name = FilterSimulator.IsDefault(index)
+                ? ModEntry.L("preview_default")
                 : WaterFeatureHelper.WATER_DISPLAY_LOCALIZED[index];
             if (!selected && kind == FilterTierKind.Reached)
             {
@@ -258,7 +368,10 @@ namespace EasierFiltering
                     .ThenBy(g => g.Key)
                     .ToList();
 
-            bool empty = groups.Count == 0 && (_stock == null || !_stock.HasUv);
+            bool showUv = FilterConfig.UseUv.Value && _stock != null && (_stock.HasUv || _useUv);
+            bool showTablets = FilterConfig.UseTablets.Value && _stock != null
+                && (_stock.TabletCount > 0 || (result != null && result.TabletsConsumed > 0));
+            bool empty = groups.Count == 0 && !showUv && !showTablets;
             SetWarning(window, "stock_empty", empty, ModEntry.L("preview_stock_empty"));
 
             List<StockRow> rows = BuildStockRows(groups, result);
@@ -288,8 +401,24 @@ namespace EasierFiltering
                 UpdateConsumeOverlay("stock_" + i + "_bar", window, afterRatio, beforeRatio);
             }
 
-            bool hasUv = _stock != null && _stock.HasUv;
-            SetWarning(window, "stock_uv", hasUv, hasUv ? ModEntry.L("preview_stock_uv", _stock.UvLamps.Count) : "");
+            if (showUv)
+            {
+                SetWarning(window, "stock_uv", true, ModEntry.L("preview_stock_uv", _stock.UvLamps.Count));
+            }
+            else
+            {
+                SetWarning(window, "stock_uv", false, "");
+            }
+
+            if (showTablets)
+            {
+                int used = result != null && _useTablets ? result.TabletsConsumed : 0;
+                SetWarning(window, "stock_tablets", true, ModEntry.L("preview_stock_tablets", used, _stock.TabletCount));
+            }
+            else
+            {
+                SetWarning(window, "stock_tablets", false, "");
+            }
         }
 
         private struct StockRow
@@ -420,7 +549,7 @@ namespace EasierFiltering
 
         private static void PaintWarning(CustomUIWindow window, FilterSimResult result)
         {
-            bool noFilter = result.NoMechanicalFilters && !result.HasUv;
+            bool noFilter = result.NoMechanicalFilters && !result.HasUv && result.TabletsConsumed <= 0;
             bool shortfall = !result.ReachedTarget && result.DurabilityShortfall > 0 && result.TargetPurity <= result.TheoreticalMaxPurity;
             bool unfilterable = result.UnfilterableNames.Count > 0 && result.TheoreticalMaxPurity < 10000;
             string text;
@@ -432,7 +561,7 @@ namespace EasierFiltering
             {
                 text = ModEntry.L("warn_shortfall", result.DurabilityShortfall, FilterSimulator.FormatPurity(result.PurityAfter));
             }
-            else if (unfilterable && !result.ReachedTarget)
+            else if (unfilterable && (!result.ReachedTarget || result.IsOnePass))
             {
                 text = ModEntry.L(
                     "warn_unfilterable",
@@ -463,6 +592,21 @@ namespace EasierFiltering
             element.SetText(visible ? text : " ");
             element.SetVisible(visible);
         }
+
+        private static void ShrinkDetail(CustomUIWindow window, string id)
+        {
+            CustomUIElement element = window.Get(id);
+            if (element?.text == null || element.text.color == TipColor)
+            {
+                return;
+            }
+
+            element.text.richText = true;
+            element.text.fontSize = Mathf.Max(10f, element.text.fontSize * 0.8f);
+            element.text.color = TipColor;
+            element.text.enableWordWrapping = true;
+            element.text.overflowMode = TextOverflowModes.Overflow;
+        }
         #endregion
 
         #region MARK: 文案
@@ -492,20 +636,18 @@ namespace EasierFiltering
                 return "";
             }
 
-            if (FilterSimulator.IsCeiling(info.Index))
+            if (FilterSimulator.IsDefault(info.Index))
             {
-                string ceilingName = ModEntry.L("preview_ceiling");
-                string ceilingPurity = FilterSimulator.FormatPurity(info.Threshold);
                 switch (info.Kind)
                 {
                     case FilterTierKind.Reached:
-                        return ModEntry.L("tier_ceiling_reached", ceilingName, ceilingPurity);
+                        return ModEntry.L("tier_default_reached");
                     case FilterTierKind.Ok:
-                        return ModEntry.L("tier_ceiling_ok", ceilingName, ceilingPurity, info.Result.DurabilityConsumed);
+                        return ModEntry.L("tier_default_ok", info.Result.DurabilityConsumed);
                     case FilterTierKind.Short:
-                        return ModEntry.L("tier_ceiling_short", ceilingName, ceilingPurity, info.Result.DurabilityShortfall);
+                        return ModEntry.L("tier_default_short", info.Result.DurabilityShortfall);
                     default:
-                        return ModEntry.L("tier_ceiling_impossible", ceilingName);
+                        return ModEntry.L("tier_default_impossible");
                 }
             }
 
@@ -520,33 +662,108 @@ namespace EasierFiltering
                 case FilterTierKind.Short:
                     return ModEntry.L("tier_short", name, range, info.Result.DurabilityShortfall);
                 default:
-                    string contaminants = info.Result.UnfilterableNames.Count > 0
-                        ? string.Join(", ", info.Result.UnfilterableNames)
-                        : "";
+                    if (info.Result.UnfilterableNames.Count > 0)
+                    {
+                        return ModEntry.L(
+                            "tier_impossible",
+                            name,
+                            string.Join(", ", info.Result.UnfilterableNames),
+                            FilterSimulator.FormatPurity(info.Result.TheoreticalMaxPurity));
+                    }
+
                     return ModEntry.L(
-                        "tier_impossible",
+                        "tier_impossible_max",
                         name,
-                        contaminants,
                         FilterSimulator.FormatPurity(info.Result.TheoreticalMaxPurity));
             }
         }
 
-        private static string MaxVolumeLine(FilterSimResult result)
+        private static string ImpurityLine(FilterSimResult result)
         {
-            if (result.TargetPurity <= result.PurityBefore)
+            if (result == null || result.ImpurityRemovedUl <= 0)
             {
-                return ModEntry.L("preview_max_already");
+                return ModEntry.L("preview_impurity_none");
             }
 
-            if (result.TargetPurity > result.TheoreticalMaxPurity)
+            return ModEntry.L("preview_result_impurity", FilterSimulator.FormatMl(result.ImpurityRemovedUl));
+        }
+
+        private static void PaintAddons(CustomUIWindow window)
+        {
+            bool showUv = FilterConfig.UseUv.Value;
+            bool showTablets = FilterConfig.UseTablets.Value;
+            window.Get("addons")?.SetVisible(showUv || showTablets);
+            PaintAddon(window, "opt_uv", showUv, _stock != null && _stock.HasUv, _useUv, "addon_uv", "addon_uv_none", "addon_uv_tip", v => _useUv = v);
+            int tabletStock = _stock != null ? _stock.TabletCount : 0;
+            PaintAddon(
+                window,
+                "opt_tablets",
+                showTablets,
+                tabletStock > 0,
+                _useTablets,
+                tabletStock > 0 ? "addon_tablets" : "addon_tablets_none",
+                "addon_tablets_none",
+                "addon_tablets_tip",
+                v => _useTablets = v);
+        }
+
+        private static void PaintAddon(
+            CustomUIWindow window,
+            string id,
+            bool show,
+            bool available,
+            bool value,
+            string labelKey,
+            string noneKey,
+            string tipKey,
+            Action<bool> setValue)
+        {
+            CustomUIElement toggle = window.Get(id);
+            CustomUIElement label = window.Get(id + "_label");
+            SetRowVisible(toggle, show);
+            label?.SetVisible(show);
+            if (!show)
             {
-                return ModEntry.L("preview_max_impossible", FilterSimulator.FormatPurity(result.TheoreticalMaxPurity));
+                return;
             }
 
-            string targetName = FilterSimulator.IsCeiling(_selectedIndex)
-                ? FilterSimulator.FormatPurity(result.TargetPurity)
-                : FilterSimulator.QualityName(result.TargetPurity);
-            return ModEntry.L("preview_max_volume", result.MaxFilterableMl, targetName);
+            if (!available)
+            {
+                setValue(false);
+                value = false;
+            }
+
+            string text = available ? ModEntry.L(labelKey) : ModEntry.L(noneKey);
+            string tip = ModEntry.L(tipKey);
+            string link = "easier_filtering:" + id;
+            TMPIconHover.CustomLinks[link] = () => tip;
+            if (label != null)
+            {
+                label.SetText(text + " <link=\"" + link + "\"><sprite name=\"info\" tint=1></link>");
+                label.SetTooltip(tip);
+                if (label.text != null)
+                {
+                    label.text.richText = true;
+                    label.text.raycastTarget = true;
+                    if (label.text.GetComponent<TMPIconHover>() == null)
+                    {
+                        label.text.gameObject.AddComponent<TMPIconHover>();
+                    }
+                }
+            }
+
+            toggle?.SetInteractable(available);
+            toggle?.SetBool(value);
+            toggle?.SetTooltip(tip);
+        }
+
+        private static void SetRowVisible(CustomUIElement toggle, bool visible)
+        {
+            toggle?.SetVisible(visible);
+            if (toggle?.root != null && toggle.root.transform.parent != null)
+            {
+                toggle.root.transform.parent.gameObject.SetActive(visible);
+            }
         }
 
         private static FilterTierInfo FindTier(int index)
@@ -578,7 +795,10 @@ namespace EasierFiltering
             }
 
             _stock = FilterInventory.Collect();
-            FilterSimResult result = FilterSimulator.Simulate(_container, _stock, _target);
+            FilterAddons addons = CurrentAddons();
+            FilterSimResult result = FilterSimulator.IsDefault(_selectedIndex)
+                ? FilterSimulator.SimulateOnePass(_container, _stock, addons)
+                : FilterSimulator.Simulate(_container, _stock, _target, addons);
             if (result.NoChange)
             {
                 Close();
@@ -601,6 +821,8 @@ namespace EasierFiltering
             _stock = null;
             _window = null;
             _tiers = null;
+            _useUv = false;
+            _useTablets = false;
             ConsumeOverlays.Clear();
         }
         #endregion

@@ -1,6 +1,6 @@
 # key,text
 tool_name,Portable Filter Rig
-tool_desc,Use on any filled container. Previews every spare filter in storage (advanced first), then filters in place.
+tool_desc,Use on any filled container. Previews spare filters in range (advanced first), then filters in place. Buy from Dr. Jackson or the retired water merchant after unlocking Water Trading.
 tool_flavor,The pitcher is honest. This is for people who have better things to do than pour.
 
 cfg_section,General
@@ -8,14 +8,16 @@ cfg_search_scope,Filter search scope
 cfg_search_scope_tip,"Storage + back: default, main storage and back counters. All owned: includes machines and pitchers. Storage only: smallest range."
 cfg_depleted,Spent filters go to
 cfg_depleted_tip,"Leave in place: do not move. Trash: dumpster. Main storage / back counter: move there."
-cfg_use_uv,Use UV lamp if owned
-cfg_use_uv_tip,Converts microbes into water, matching the handheld UV lamp. UV lamps are not consumed.
+cfg_use_uv,Enable UV lamp option
+cfg_use_uv_tip,Off by default. When on, the filter preview shows a checkbox to convert microbes with a UV lamp. The lamp is not consumed.
+cfg_use_tablets,Enable purification tablets
+cfg_use_tablets_tip,Off by default. When on, the filter preview shows a checkbox to use water purification tablets. Consumption is listed under Consumables.
+cfg_bottle_drag,Drag tablet bottle onto containers
+cfg_bottle_drag_tip,Off by default. When on, dragging a whole bottle of purification tablets onto a water container uses one tablet.
 cfg_real_dur,Use real durability
 cfg_real_dur_tip,On: preview matches the real filter. Off: uses the displayed durability (fake filters can look better than they are).
 cfg_fabric,Use improvised filter media
 cfg_fabric_tip,Off: only water filters, advanced filters, and hydroreed filters. On: also Kotton fabric and other WATER_FILTER items.
-cfg_grant,Give the tool when loading a save
-cfg_grant_tip,If you don't already own the portable filter rig, one is placed on the back counter. If that is full, it goes to main storage.
 opt_scope_storage_back,Storage + back counters
 opt_scope_all,All owned items
 opt_scope_storage,Main storage only
@@ -27,34 +29,47 @@ opt_dep_back,Back counter
 preview_title,Filter Preview
 preview_container,Container
 preview_container_line,{0}  —  {1} ml   {2} ({3})
-preview_stock,Filters in range
+preview_stock,Consumables
 preview_stock_bar,{0} x{1}    use {2} / stock {3}
 preview_stock_other,Other
 preview_stock_uv,UV lamp  x{0}  (no durability cost)
-preview_stock_empty,No usable filters in the current search scope.
-preview_tier,Target grade
+preview_stock_tablets,Tablets    use {0} / stock {1}
+preview_stock_empty,No consumables in the current search scope.
+addon_uv,UV lamp
+addon_uv_none,UV lamp (none)
+addon_uv_tip,Converts microbes into water. The lamp is not consumed. Unavailable if none are in range.
+addon_tablets,Tablets
+addon_tablets_none,Tablets (none)
+addon_tablets_tip,Applies the overnight chlorine reaction immediately, reducing microbes and chemical contaminants. Usage is listed under Consumables.
+preview_tier,Filter mode
+preview_default,One pass
 tier_reached,{0} ({1}): already there
 tier_ok,{0} ({1}): reachable, uses {2} durability
 tier_short,{0} ({1}): not enough durability, short {2}
 tier_impossible,{0}: cannot remove {1}. Ceiling {2}
+tier_impossible_max,{0}: cannot reach. Ceiling {1}
 tier_mark_reached, ✓
 tier_mark_impossible, ×
+tier_default_reached,One pass: another pass would not remove more contaminants
+tier_default_ok,One pass: uses {0} durability
+tier_default_short,One pass: not enough durability, short {0}
+tier_default_impossible,One pass: no usable filter
 preview_result,Result
 preview_result_purity,Purity: {0} → {1} ({2})
 preview_result_volume,Volume: {0} ml → {1} ml
+preview_result_impurity,Contaminants removed: {0} ml
 preview_result_pours,Pitcher pours (equiv.): {0}
 preview_max_volume,Up to {0} ml → {1}
 preview_max_already,Already at the target grade.
 preview_max_impossible,Cannot reach this target. Ceiling is {0}.
+preview_impurity_none,No contaminants would be removed.
+preview_impurity_removed,{0} {1} ml
+preview_impurity_paren, ({0})
+preview_impurity_sep,;  
 preview_confirm,Filter
 preview_cancel,Cancel
-preview_ceiling,Filter ceiling
-tier_ceiling_reached,{0} ({1}): already there
-tier_ceiling_ok,{0} ({1}): reachable, uses {2} durability
-tier_ceiling_short,{0} ({1}): not enough durability, short {2}
-tier_ceiling_impossible,{0}: no filter left that can raise purity.
+tip_default,Runs one filter pass on the whole container, the same as pouring it through a pitcher once.
 tip_stop_at_tier,Stops at the grade threshold. Extra durability is not spent.
-tip_ceiling,Filters until they cannot raise purity further. A stock purifier caps at 99.01% (high-quality) per cycle; pure water needs quality modules. The machine does nothing if the water is already above its cap.
 
 warn_no_filter,No usable filters (or UV lamp) in the current search scope.
 warn_unfilterable,Remaining contaminants: {0}. Ceiling: {1}.

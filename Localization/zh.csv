@@ -1,6 +1,6 @@
 # key,文本
 tool_name,便携过滤装置
-tool_desc,对任意装水容器使用。预览当前搜索范围内的备用过滤器（优先高级），确认后原地一次性过滤。
+tool_desc,对任意装水容器使用。预览当前搜索范围内的备用过滤器（优先高级），确认后原地一次性过滤。解锁「水资源交易」后可向杰克逊博士或退休水商购买。
 tool_flavor,用水壶反复倾倒是老实办法。这是给不想再倒来倒去的人准备的。
 
 cfg_section,通用
@@ -8,14 +8,16 @@ cfg_search_scope,过滤器搜索范围
 cfg_search_scope_tip,主仓库+后台：默认，只搜主仓库和后台台面。所有拥有物品：包括机器和水壶里的滤芯。只用主仓库：范围最小。
 cfg_depleted,耗尽的滤芯去向
 cfg_depleted_tip,留在原位：不移动。垃圾桶：丢掉。主仓库 / 后台柜台：移到对应格子。
-cfg_use_uv,拥有紫外线灯时去除微生物
-cfg_use_uv_tip,与手持紫外线灯相同：把微生物转化成水。紫外线灯不消耗耐久。
+cfg_use_uv,启用紫外线灯选项
+cfg_use_uv_tip,默认关。开启后，过滤预览里会出现勾选框，可选择本次是否用紫外线灯把微生物转化成水；灯不消耗耐久。
+cfg_use_tablets,启用净水药片选项
+cfg_use_tablets_tip,默认关。开启后，过滤预览里会出现勾选框，可选择本次是否使用净水药片（按过夜氯反应立刻结算，消耗见预览中的「消耗物品量」）。
+cfg_bottle_drag,整瓶净水药片可拖到容器
+cfg_bottle_drag_tip,默认关。开启后，可以把整瓶净水药片直接拖到装水容器上，消耗一颗，效果与单独拖药片相同。
 cfg_real_dur,按真实耐久计算
 cfg_real_dur_tip,开启：预览与真实过滤一致。关闭：按显示耐久计算（假过滤器会看起来比实际更耐用）。
 cfg_fabric,使用非常规滤材
 cfg_fabric_tip,关闭：只用普通过滤器、高级过滤器和水生芦苇滤芯。开启：也包括 Kotton 布等带 WATER_FILTER 标签的物品。
-cfg_grant,读档时赠送过滤工具
-cfg_grant_tip,如果还没有便携过滤装置，读档后放到后台柜台；放不下时改放到主仓库。
 opt_scope_storage_back,主仓库 + 后台
 opt_scope_all,所有拥有的物品
 opt_scope_storage,只用主仓库
@@ -27,34 +29,47 @@ opt_dep_back,后台柜台
 preview_title,过滤预览
 preview_container,容器
 preview_container_line,{0}  —  {1} ml   {2}（{3}）
-preview_stock,范围内的过滤器
+preview_stock,消耗物品量
 preview_stock_bar,{0} x{1}    消耗 {2} / 总量 {3}
 preview_stock_other,其他
 preview_stock_uv,紫外线灯  x{0}  （不消耗耐久）
-preview_stock_empty,当前搜索范围内没有可用的过滤器。
-preview_tier,目标水质
+preview_stock_tablets,净水药片    消耗 {0} / 库存 {1}
+preview_stock_empty,当前搜索范围内没有可消耗的物品。
+addon_uv,紫外线灯
+addon_uv_none,紫外线灯（没有）
+addon_uv_tip,将微生物转化成水，不消耗灯的耐久。范围内没有灯时不可用。
+addon_tablets,净水药片
+addon_tablets_none,净水药片（没有）
+addon_tablets_tip,按过夜氯反应立刻结算，可降低微生物和化学污染物。消耗量见下方「消耗物品量」。
+preview_tier,过滤方式
+preview_default,滤一次
 tier_reached,{0}（{1}）：已达到
 tier_ok,{0}（{1}）：可达到，需消耗耐久 {2}
 tier_short,{0}（{1}）：耐久不足，还差 {2}
 tier_impossible,{0}：过滤器去不掉{1}，上限 {2}
+tier_impossible_max,{0}：无法达到，上限 {1}
 tier_mark_reached, ✓
 tier_mark_impossible, ×
+tier_default_reached,滤一次：再滤一轮也去不掉更多杂质
+tier_default_ok,滤一次：消耗耐久 {0}
+tier_default_short,滤一次：耐久不足，还差 {0}
+tier_default_impossible,滤一次：没有可用的滤芯
 preview_result,过滤结果
 preview_result_purity,纯净度：{0} → {1}（{2}）
 preview_result_volume,水量：{0} ml → {1} ml
+preview_result_impurity,去除杂质：{0} ml
 preview_result_pours,等效水壶倾倒次数：{0}
 preview_max_volume,最多 {0} ml → {1}
 preview_max_already,已经达到目标水质。
 preview_max_impossible,无法达到该目标。理论上限为 {0}。
+preview_impurity_none,没有可去除的杂质。
+preview_impurity_removed,{0} {1} ml
+preview_impurity_paren,（{0}）
+preview_impurity_sep,、
 preview_confirm,执行过滤
 preview_cancel,取消
-preview_ceiling,滤芯上限
-tier_ceiling_reached,{0}（{1}）：已达到
-tier_ceiling_ok,{0}（{1}）：可达到，需消耗耐久 {2}
-tier_ceiling_short,{0}（{1}）：耐久不足，还差 {2}
-tier_ceiling_impossible,{0}：当前没有能继续提高纯净度的滤芯。
+tip_default,对当前容器里的整罐水做一次过滤，相当于用水壶倒过一遍滤芯。
 tip_stop_at_tier,达到挡位门槛即停止，不多耗耐久。
-tip_ceiling,滤芯会滤到再也提不高。默认净水器一轮上限 99.01%（优质水）；要出纯水需要品质模块。水已经高于机器上限时机器不会工作。
 
 warn_no_filter,当前搜索范围内没有可用的过滤器（或紫外线灯）。
 warn_unfilterable,过滤器去不掉：{0}。理论上限：{1}。
