@@ -25,6 +25,12 @@ namespace EasierFiltering
             "opt_dep_back"
         };
 
+        private static readonly string[] HydroModeKeys =
+        {
+            "opt_hydro_direct",
+            "opt_hydro_plant"
+        };
+
         #region MARK: Postfix
         private static void Postfix(LoadedMod mod, CustomUIWindow __result)
         {
@@ -41,6 +47,7 @@ namespace EasierFiltering
             __result.Get("section_General")?.SetText(ModEntry.L("cfg_section"));
             LocalizeDropdown(__result, "search_scope", SearchScopeKeys);
             LocalizeDropdown(__result, "depleted_destination", DepletedKeys);
+            LocalizeDropdown(__result, "hydro_default_mode", HydroModeKeys);
         }
 
         private static void LocalizeDropdown(CustomUIWindow window, string id, string[] keys)

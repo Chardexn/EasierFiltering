@@ -15,6 +15,12 @@ namespace EasierFiltering
         BackCounter = 3
     }
 
+    internal enum HydroMode
+    {
+        Direct = 0,
+        Planting = 1
+    }
+
     /// <summary>
     /// 模组配置。Define 在 Init 调用；标签用延迟 Func，打开面板时才读本地化。
     /// </summary>
@@ -27,9 +33,11 @@ namespace EasierFiltering
         public static ConfigEntry<bool> UseBottleDrag { get; private set; }
         public static ConfigEntry<bool> UseRealDurability { get; private set; }
         public static ConfigEntry<bool> IncludeFabric { get; private set; }
+        public static ConfigEntry<HydroMode> HydroDefaultModeEntry { get; private set; }
 
         public static SearchScope SearchScope => SearchScopeEntry.Value;
         public static DepletedDestination DepletedDestination => DepletedDestinationEntry.Value;
+        public static HydroMode HydroDefaultMode => HydroDefaultModeEntry.Value;
 
         #region MARK: 定义
         public static void Define()
@@ -85,6 +93,13 @@ namespace EasierFiltering
                 section,
                 () => ModEntry.L("cfg_fabric"),
                 () => ModEntry.L("cfg_fabric_tip"));
+
+            HydroDefaultModeEntry = cfg.DefineEnum(
+                "hydro_default_mode",
+                HydroMode.Planting,
+                section,
+                () => ModEntry.L("cfg_hydro_mode"),
+                () => ModEntry.L("cfg_hydro_mode_tip"));
         }
         #endregion
     }

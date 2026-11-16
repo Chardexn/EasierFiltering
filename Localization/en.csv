@@ -1,6 +1,6 @@
 # key,text
 tool_name,Portable Filter Rig
-tool_desc,Use on any filled container. Previews spare filters in range (advanced first), then filters in place. Buy from Dr. Jackson or the retired water merchant after unlocking Water Trading.
+tool_desc,Use on any filled container or hydroponic. Previews spare filters in range (advanced first), then filters in place. On a hydroponic choose Direct (same UV / tablets / quality grades as a jug) or Planting (dose nutrient tablets). Purifier mode appears only when the container is already in a water purifier. Buy from Dr. Jackson or the retired water merchant after unlocking Water Trading.
 tool_flavor,The pitcher is honest. This is for people who have better things to do than pour.
 
 cfg_section,General
@@ -42,6 +42,15 @@ addon_tablets,Tablets
 addon_tablets_none,Tablets (none)
 addon_tablets_tip,Applies the overnight chlorine reaction immediately, reducing microbes and chemical contaminants. Usage is listed under Consumables.
 preview_tier,Filter mode
+mode_direct,Direct
+mode_purifier,Purifier
+mode_purifier_unavailable,Put the container in a water purifier first
+purifier_info,Cap {0} · tonight ~{1} ml
+purifier_after_night,After tonight's purifier → {0} ({1})
+tier_no_prep,{0} ({1}): no prep needed tonight
+tier_cap_limited,{0}: purifier cap {1}. Needs quality bonus 100 (now {2})
+tier_nights,{0} ({1}): tonight max {2}; about {3} nights after full prep
+tier_nights_never,{0} ({1}): tonight max {2}; more nights still cannot reach
 preview_default,One pass
 tier_reached,{0} ({1}): already there
 tier_ok,{0} ({1}): reachable, uses {2} durability
@@ -70,7 +79,68 @@ preview_confirm,Filter
 preview_cancel,Cancel
 tip_default,Runs one filter pass on the whole container, the same as pouring it through a pitcher once.
 tip_stop_at_tier,Stops at the grade threshold. Extra durability is not spent.
+tip_purifier,Uses tonight's purifier removal. Only pre-filters enough to hit the grade after the night.
 
 warn_no_filter,No usable filters (or UV lamp) in the current search scope.
+warn_no_power,The purifier will not run tonight (no battery or not enough charge).
 warn_unfilterable,Remaining contaminants: {0}. Ceiling: {1}.
 warn_shortfall,Not enough durability (short {0}). Expected purity: {1}.
+
+cfg_hydro_mode,Default hydroponic mode
+cfg_hydro_mode_tip,Used when a hydroponic has no saved setting or the seed changed. Hydroreed (including hydroreed seed) always opens Direct on one pass. Other seeds use this default (Planting). Purifier is a separate scene: point the tool at a container already in a water purifier.
+opt_hydro_direct,Direct
+opt_hydro_plant,Planting
+
+hydro_title,Hydroponic
+hydro_header,{0}    {1}
+hydro_modified,{0} (genetically modified)
+hydro_no_seed,No seed
+hydro_no_water,No water
+hydro_water_line,{0}/{1} ml
+hydro_seed,Seed
+hydro_seed_range,Preferred minerals {0} – {1}
+hydro_seed_range_mod,Preferred minerals {0} – {1} (base {2}–{3}, tolerance ×{4})
+hydro_seed_stats,Contaminant sensitivity ×{0} ({1})    {2}
+hydro_seed_water,Water use {0} ml / cycle
+hydro_seed_water_mod,Water use {0} ml / cycle (base {1})
+hydro_seed_traits,Traits: {0}
+hydro_traits_none,None
+hydro_trait_sep,", "
+hydro_mode_plant,Planting
+hydro_range,Mineral range
+hydro_lo,Low
+hydro_hi,High
+hydro_target,Dose target (midpoint): {0}
+hydro_restore,Reset
+hydro_stock_tablets,Nutrient tablets    use {0} / stock {1}
+hydro_stock_filters,Filters    use {0} / stock {1} durability
+hydro_result_mineral,Minerals {0} → {1} ({2})
+hydro_in_range,in range
+hydro_out_range,out of range
+hydro_result_safe,Harmful contaminants: plant-safe
+hydro_result_unsafe,Still harmful: {0}
+hydro_unsafe_item,{0} {1}
+hydro_result_consume,Use {0} nutrient tablet(s)
+hydro_result_cycles,About {0} grow cycle(s)
+hydro_confirm,Apply
+hydro_sens_immune,immune
+hydro_sens_average,average
+hydro_sens_very_sensitive,very sensitive
+hydro_sens_sensitive,sensitive
+hydro_sens_slightly_sensitive,slightly sensitive
+hydro_sens_very_resistant,very resistant
+hydro_sens_resistant,resistant
+hydro_sens_slightly_resistant,slightly resistant
+hydro_sens_unknown,unknown
+hydro_warn_no_machine,No hydroponic found.
+hydro_warn_no_seed,Put a seed in the hydroponic first.
+hydro_warn_no_water,The water slot is empty.
+hydro_warn_over_limit,Minerals are above the high bound. Change or dilute the water.
+hydro_warn_no_tablets,No nutrient tablets in the current search scope.
+hydro_warn_shortfall,Not enough nutrient tablets (short {0}).
+hydro_warn_no_filter,No usable filters in the current search scope.
+hydro_tip_plant,Doses nutrient tablets to the seed's preferred mineral range. Filter harmful contaminants with Direct first.
+hydro_warn_unsafe,Remaining contaminants will still harm the plant: {0}
+hydro_warn_overflow,The tank is full; extra tablets will displace some liquid.
+hydro_warn_overshoot,One tablet would overshoot the high bound. Add water or use a larger tank.
+hydro_warn_already,Already in range; no tablets needed.

@@ -59,6 +59,14 @@ namespace EasierFiltering
         public bool NoMechanicalFilters;
         public bool NoChange;
         public bool IsOnePass;
+        public bool IsPurifierMode;
+        public bool PurifierNeedsNoPrep;
+        public bool CapLimited;
+        public int PurifierCap;
+        public int PredictedPurityAfterNight;
+        public int PredictedRemovedUl;
+        public int NightsNeeded;
+        public int QualityBonus;
     }
 
     internal struct FilterAddons
@@ -77,8 +85,20 @@ namespace EasierFiltering
         public const int PitcherCapacityUl = 3000000;
         public const int DefaultIndex = -2;
         public const int ChlorinePerTabletUl = 15000;
+        public const int MaxPurifierNights = 30;
+        public const int PureQualityBonusRequired = 100;
+
+        private const long FallbackFilterValue = 25;
+        private const long FallbackTabletValue = 6;
 
         private static readonly int[] PreviewTierIndices = { 1, 0 };
+        private static readonly int[] PurifierTierIndices = { 1, 0 };
+        private static readonly HashSet<string> PurifierRemovedLast = new HashSet<string>
+        {
+            Liquid.LIQUID_MINERAL,
+            Liquid.LIQUID_CHEMICAL_CONTAMINANT,
+            Liquid.LIQUID_HEAVY_METAL
+        };
 
         public static bool IsDefault(int index)
         {
@@ -127,7 +147,7 @@ namespace EasierFiltering
             int pours = 0;
             if (PurityOf(parts) < clampedTarget && clampedTarget <= theoreticalMax)
             {
-                PassOutcome outcome = RunPasses(parts, working, clampedTarget);
+                PassOutcome outcome = RunPasses(parts, working, p => PurityOf(p) >= clampedTarget);
                 passes = outcome.Passes;
                 pours = outcome.PitcherPours;
             }
@@ -173,6 +193,67 @@ namespace EasierFiltering
             result.DurabilityShortfall = ComputeOnePassShortfall(partsBefore, working, stock, hasUv, result);
             result.ReachedTarget = result.DurabilityShortfall <= 0;
             return result;
+        }
+
+        public static FilterSimResult SimulateUntil(GameItem container, FilterStock stock, Func<int[], bool> done, FilterAddons addons = default)
+        {
+            int[] parts = WaterHelper.GetLiquidParts(container);
+            return SimulateUntil(parts, stock, done, addons);
+        }
+
+        public static FilterSimResult SimulateUntil(int[] sourceParts, FilterStock stock, Func<int[], bool> done, FilterAddons addons = default)
+        {
+            int[] partsBefore = (int[])sourceParts.Clone();
+            List<FilterSnapshot> working = stock.Filters
+                .Where(f => f.Durability > 0)
+                .Select(f => f.Clone())
+                .ToList();
+            working = FilterInventory.SortForUse(working);
+
+            bool hasUv = addons.Uv && stock.HasUv;
+            int tabletCount = addons.Tablets ? stock.TabletCount : 0;
+            int[] parts = (int[])partsBefore.Clone();
+            bool usedUv = ApplyUv(parts, hasUv);
+            int theoreticalMax = ComputeTheoreticalMaxPurity(partsBefore, working, hasUv, tabletCount);
+            List<string> unfilterable = ListUnfilterableNames(partsBefore, working, hasUv, tabletCount > 0);
+
+            int passes = 0;
+            int pours = 0;
+            bool alreadyDone = done != null && done(parts);
+            if (!alreadyDone)
+            {
+                PassOutcome outcome = RunPasses(parts, working, p => done != null && done(p));
+                passes = outcome.Passes;
+                pours = outcome.PitcherPours;
+            }
+
+            int tablets = addons.Tablets ? ApplyTablets(parts, stock.TabletCount) : 0;
+            FilterSimResult result = BuildResult(
+                partsBefore,
+                parts,
+                working,
+                PurityOf(parts),
+                theoreticalMax,
+                unfilterable,
+                hasUv,
+                usedUv,
+                passes,
+                pours,
+                onePass: false,
+                tablets);
+            result.ReachedTarget = done != null && done(parts);
+            return result;
+        }
+
+        public static FilterSimResult SimulateForPurifier(
+            GameItem container,
+            FilterStock stock,
+            int targetPurity,
+            FilterAddons addons,
+            PurifierInfo purifier)
+        {
+            int[] parts = WaterHelper.GetLiquidParts(container);
+            return SimulateForPurifier(parts, stock, targetPurity, addons, purifier);
         }
 
         public static FilterTierInfo[] EvaluateTiers(GameItem container, FilterStock stock, FilterAddons addons = default)
@@ -271,6 +352,97 @@ namespace EasierFiltering
 
             return infos[0];
         }
+
+        public static FilterTierInfo[] EvaluatePurifierTiers(
+            GameItem container,
+            FilterStock stock,
+            FilterAddons addons,
+            PurifierInfo purifier)
+        {
+            return EvaluatePurifierTiers(WaterHelper.GetLiquidParts(container), stock, addons, purifier);
+        }
+
+        public static FilterTierInfo[] EvaluatePurifierTiers(
+            int[] sourceParts,
+            FilterStock stock,
+            FilterAddons addons,
+            PurifierInfo purifier)
+        {
+            FilterTierInfo[] infos = new FilterTierInfo[PurifierTierIndices.Length];
+            for (int i = 0; i < PurifierTierIndices.Length; i++)
+            {
+                int index = PurifierTierIndices[i];
+                int threshold = WaterFeatureHelper.WATER_PURITIES[index];
+                FilterSimResult result = SimulateForPurifier(sourceParts, stock, threshold, addons, purifier);
+                FilterTierKind kind;
+                if (result.CapLimited)
+                {
+                    kind = FilterTierKind.Impossible;
+                }
+                else if (result.PurifierNeedsNoPrep || PurityOf(sourceParts) >= threshold)
+                {
+                    kind = FilterTierKind.Reached;
+                }
+                else if (result.ReachedTarget)
+                {
+                    kind = FilterTierKind.Ok;
+                }
+                else
+                {
+                    kind = FilterTierKind.Short;
+                }
+
+                infos[i] = new FilterTierInfo
+                {
+                    Index = index,
+                    Threshold = threshold,
+                    Kind = kind,
+                    Result = result
+                };
+            }
+
+            return infos;
+        }
+
+        public static FilterTierInfo PickPurifierTier(FilterTierInfo[] infos)
+        {
+            if (infos == null || infos.Length == 0)
+            {
+                return null;
+            }
+
+            FilterTierInfo quality = null;
+            FilterTierInfo pure = null;
+            foreach (FilterTierInfo info in infos)
+            {
+                if (info.Index == 1)
+                {
+                    quality = info;
+                }
+                else if (info.Index == 0)
+                {
+                    pure = info;
+                }
+            }
+
+            if (quality != null && quality.Kind == FilterTierKind.Reached
+                && pure != null && (pure.Kind == FilterTierKind.Ok || pure.Kind == FilterTierKind.Short))
+            {
+                return pure;
+            }
+
+            if (quality != null && quality.Kind != FilterTierKind.Impossible)
+            {
+                return quality;
+            }
+
+            if (pure != null && pure.Kind != FilterTierKind.Impossible)
+            {
+                return pure;
+            }
+
+            return quality ?? infos[0];
+        }
         #endregion
 
         #region MARK: 多趟 / 单趟
@@ -287,20 +459,20 @@ namespace EasierFiltering
             public float Efficiency;
         }
 
-        private static PassOutcome RunPasses(int[] parts, List<FilterSnapshot> filters, int targetPurity)
+        private static PassOutcome RunPasses(int[] parts, List<FilterSnapshot> filters, Func<int[], bool> isDone)
         {
             int passes = 0;
             int pours = 0;
             while (passes < MaxPasses)
             {
-                if (PurityOf(parts) >= targetPurity)
+                if (isDone(parts))
                 {
                     break;
                 }
 
                 int[] before = (int[])parts.Clone();
                 int volumeBefore = Sum(before);
-                bool reached = RunOnePassTowardTarget(parts, filters, targetPurity);
+                bool reached = RunOnePassTowardTarget(parts, filters, isDone);
                 passes++;
                 if (!SameParts(before, parts))
                 {
@@ -316,7 +488,7 @@ namespace EasierFiltering
             return new PassOutcome { Passes = passes, PitcherPours = pours };
         }
 
-        private static bool RunOnePassTowardTarget(int[] parts, List<FilterSnapshot> filters, int targetPurity)
+        private static bool RunOnePassTowardTarget(int[] parts, List<FilterSnapshot> filters, Func<int[], bool> isDone)
         {
             List<ContaminantWork> work = new List<ContaminantWork>();
             for (int i = 0; i < Liquid.Liquids.Count && i < parts.Length; i++)
@@ -360,7 +532,7 @@ namespace EasierFiltering
 
             foreach (ContaminantWork item in work)
             {
-                if (PurityOf(parts) >= targetPurity)
+                if (isDone(parts))
                 {
                     return true;
                 }
@@ -369,7 +541,7 @@ namespace EasierFiltering
                 int ticks = 0;
                 while (parts[item.Index] > item.Floor && ticks < MaxTicksPerLiquid)
                 {
-                    if (PurityOf(parts) >= targetPurity)
+                    if (isDone(parts))
                     {
                         return true;
                     }
@@ -396,7 +568,7 @@ namespace EasierFiltering
                 }
             }
 
-            return PurityOf(parts) >= targetPurity;
+            return isDone(parts);
         }
 
         private static void RunOnePassVanilla(int[] parts, List<FilterSnapshot> filters)
@@ -531,6 +703,18 @@ namespace EasierFiltering
         private static void ApplyOneTablet(int[] parts)
         {
             int chlorineIndex = IndexOf(Liquid.LIQUID_CHLORINE);
+            if (chlorineIndex < 0 || chlorineIndex >= parts.Length)
+            {
+                return;
+            }
+
+            parts[chlorineIndex] += ChlorinePerTabletUl;
+            SimulateChlorineTick(parts);
+        }
+
+        private static void SimulateChlorineTick(int[] parts)
+        {
+            int chlorineIndex = IndexOf(Liquid.LIQUID_CHLORINE);
             int microbeIndex = IndexOf(Liquid.LIQUID_MICROBE);
             int chemIndex = IndexOf(Liquid.LIQUID_CHEMICAL_CONTAMINANT);
             int waterIndex = IndexOf(Liquid.LIQUID_WATER);
@@ -544,8 +728,12 @@ namespace EasierFiltering
                 return;
             }
 
-            parts[chlorineIndex] += ChlorinePerTabletUl;
             int chlorine = parts[chlorineIndex];
+            if (chlorine <= 0)
+            {
+                return;
+            }
+
             int microbes = microbeIndex >= 0 && microbeIndex < parts.Length ? parts[microbeIndex] : 0;
             int chem = chemIndex >= 0 && chemIndex < parts.Length ? parts[chemIndex] : 0;
             int reacted = Math.Min(chlorine, ChlorinePerTabletUl);
@@ -671,7 +859,7 @@ namespace EasierFiltering
             int[] parts = (int[])partsBefore.Clone();
             List<FilterSnapshot> working = infinite.Filters.Select(f => f.Clone()).ToList();
             ApplyUv(parts, hasUv);
-            RunPasses(parts, working, target);
+            RunPasses(parts, working, p => PurityOf(p) >= target);
             int needed = working.Sum(f => Math.Max(0, f.DurabilityBefore - f.Durability));
             return Mathf.Max(0, needed - available);
         }
@@ -788,7 +976,7 @@ namespace EasierFiltering
                 .Select(f => f.Clone())
                 .ToList();
             ApplyUv(scaled, hasUv);
-            RunPasses(scaled, working, target);
+            RunPasses(scaled, working, p => PurityOf(p) >= target);
             return PurityOf(scaled) >= target;
         }
 
@@ -813,6 +1001,397 @@ namespace EasierFiltering
             infinite.TotalDurability = 1000000000;
             infinite.UvLamps.AddRange(stock.UvLamps);
             return infinite;
+        }
+        #endregion
+
+        #region MARK: 净水器
+        public static FilterSimResult SimulateForPurifier(
+            int[] sourceParts,
+            FilterStock stock,
+            int targetPurity,
+            FilterAddons addons,
+            PurifierInfo purifier)
+        {
+            int[] partsBefore = (int[])sourceParts.Clone();
+            List<FilterSnapshot> working = stock.Filters
+                .Where(f => f.Durability > 0)
+                .Select(f => f.Clone())
+                .ToList();
+            working = FilterInventory.SortForUse(working);
+
+            bool hasUv = addons.Uv && stock.HasUv;
+            int tabletLeft = addons.Tablets ? stock.TabletCount : 0;
+            int[] parts = (int[])partsBefore.Clone();
+            int theoreticalMax = purifier != null ? purifier.Cap : 0;
+            List<string> unfilterable = ListUnfilterableNames(partsBefore, working, hasUv, tabletLeft > 0);
+
+            if (purifier == null)
+            {
+                FilterSimResult empty = BuildResult(
+                    partsBefore, parts, working, targetPurity, theoreticalMax, unfilterable,
+                    hasUv, usedUv: false, passes: 0, pours: 0, onePass: false, tabletsConsumed: 0);
+                empty.IsPurifierMode = true;
+                empty.CapLimited = true;
+                empty.NightsNeeded = -1;
+                return empty;
+            }
+
+            bool capLimited = targetPurity > purifier.Cap;
+            bool usedUv = false;
+            int passes = 0;
+            int pours = 0;
+            int tablets = 0;
+            Func<int[], bool> isDone = p => PurityOf(PredictAfterNight(p, purifier)) >= targetPurity;
+
+            if (!capLimited)
+            {
+                if (hasUv)
+                {
+                    int[] uvProbe = (int[])parts.Clone();
+                    if (ApplyUv(uvProbe, true))
+                    {
+                        int beforeNight = PurityOf(PredictAfterNight(parts, purifier));
+                        int afterNight = PurityOf(PredictAfterNight(uvProbe, purifier));
+                        if (afterNight >= beforeNight)
+                        {
+                            ApplyUv(parts, true);
+                            usedUv = true;
+                        }
+                    }
+                }
+
+                if (!isDone(parts))
+                {
+                    GreedyOutcome greedy = RunPurifierGreedy(parts, working, isDone, tabletLeft, stock);
+                    passes = greedy.Passes;
+                    pours = greedy.PitcherPours;
+                    tablets = greedy.Tablets;
+                }
+            }
+
+            int[] predicted = PredictAfterNight(parts, purifier);
+            int predictedPurity = PurityOf(predicted);
+            int nights = NightsToTarget(parts, purifier, targetPurity);
+            FilterSimResult result = BuildResult(
+                partsBefore, parts, working, targetPurity, theoreticalMax, unfilterable,
+                hasUv, usedUv, passes, pours, onePass: false, tablets);
+            result.IsPurifierMode = true;
+            result.CapLimited = capLimited;
+            result.PurifierCap = purifier.Cap;
+            result.QualityBonus = purifier.QualityBonus;
+            result.PredictedPurityAfterNight = predictedPurity;
+            result.PredictedRemovedUl = Math.Max(0, ImpurityOf(parts) - ImpurityOf(predicted));
+            result.NightsNeeded = nights;
+            result.ReachedTarget = !capLimited && predictedPurity >= targetPurity;
+            result.PurifierNeedsNoPrep = result.ReachedTarget && result.NoChange && PurityOf(partsBefore) < targetPurity;
+            return result;
+        }
+
+        public static int[] PredictAfterNight(int[] sourceParts, PurifierInfo purifier)
+        {
+            int[] parts = (int[])sourceParts.Clone();
+            SimulateChlorineTick(parts);
+            if (purifier != null)
+            {
+                SimulatePurifierCycle(parts, purifier.QualityBonus, purifier.PerfBonus);
+            }
+
+            return parts;
+        }
+
+        public static int NightsToTarget(int[] sourceParts, PurifierInfo purifier, int targetPurity, int maxNights = MaxPurifierNights)
+        {
+            int[] cursor = (int[])sourceParts.Clone();
+            if (PurityOf(cursor) >= targetPurity)
+            {
+                return 0;
+            }
+
+            for (int night = 1; night <= maxNights; night++)
+            {
+                int[] next = PredictAfterNight(cursor, purifier);
+                if (SameParts(next, cursor))
+                {
+                    return PurityOf(next) >= targetPurity ? night : -1;
+                }
+
+                cursor = next;
+                if (PurityOf(cursor) >= targetPurity)
+                {
+                    return night;
+                }
+            }
+
+            return -1;
+        }
+
+        public static long ComputePurifierBudget(int[] parts, int perfBonus)
+        {
+            int total = Sum(parts);
+            int purity = PurityOf(parts);
+            double dirtBonus = MachinePurifier.GetDirtBonus(purity) + perfBonus / 100.0;
+            if (dirtBonus < 0)
+            {
+                dirtBonus = 0;
+            }
+
+            dirtBonus *= MachinePurifier.REMOVAL_MULTIPLIER;
+            return (long)((Math.Min(total, MachinePurifier.BUDGET_VOLUME_CAP_UL) * (long)MachinePurifier.BUDGET_VOLUME_PERMILLE / 1000
+                + MachinePurifier.BUDGET_FLAT_UL) * dirtBonus);
+        }
+
+        private static void SimulatePurifierCycle(int[] parts, int qualityBonus, int perfBonus)
+        {
+            int total = Sum(parts);
+            if (total <= 0)
+            {
+                return;
+            }
+
+            int cap = MachinePurifier.GetMaxPurityCap(qualityBonus);
+            long budget = ComputePurifierBudget(parts, perfBonus);
+            RemoveLargestFirst(parts, cap, budget);
+        }
+
+        private static int RemoveLargestFirst(int[] parts, int cap, long budget)
+        {
+            int total = Sum(parts);
+            int waterIndex = IndexOf(Liquid.LIQUID_WATER);
+            if (total <= 0 || waterIndex < 0 || waterIndex >= parts.Length)
+            {
+                return 0;
+            }
+
+            int water = Math.Max(0, parts[waterIndex]);
+            if (water <= 0)
+            {
+                return 0;
+            }
+
+            long impurityFloor = (long)total * (10000 - cap) / 10000;
+            long toRemove = Math.Min(budget, total - water - impurityFloor);
+            if (toRemove <= 0)
+            {
+                return 0;
+            }
+
+            SortedDictionary<int, List<Liquid>> groups = new SortedDictionary<int, List<Liquid>>();
+            foreach (Liquid liquid in Liquid.Liquids)
+            {
+                int index = IndexOf(liquid.identifier);
+                if (index < 0 || index >= parts.Length || parts[index] <= 0)
+                {
+                    continue;
+                }
+
+                if (liquid.identifier == Liquid.LIQUID_WATER || !liquid.canBeRemovedByPurifier)
+                {
+                    continue;
+                }
+
+                int key = (PurifierRemovedLast.Contains(liquid.identifier) ? 1000000 : 0) - liquid.particleSize;
+                if (!groups.TryGetValue(key, out List<Liquid> list))
+                {
+                    list = new List<Liquid>();
+                    groups[key] = list;
+                }
+
+                list.Add(liquid);
+            }
+
+            long removed = 0L;
+            foreach (List<Liquid> group in groups.Values)
+            {
+                if (toRemove <= 0)
+                {
+                    break;
+                }
+
+                long groupTotal = 0L;
+                foreach (Liquid liquid in group)
+                {
+                    int index = IndexOf(liquid.identifier);
+                    groupTotal += parts[index];
+                }
+
+                long take = Math.Min(groupTotal, toRemove);
+                long assigned = 0L;
+                for (int i = 0; i < group.Count; i++)
+                {
+                    int index = IndexOf(group[i].identifier);
+                    int amount = parts[index];
+                    long share = i == group.Count - 1 ? take - assigned : amount * take / groupTotal;
+                    share = Math.Min(share, amount);
+                    assigned += share;
+                    parts[index] = amount - (int)share;
+                }
+
+                removed += assigned;
+                toRemove -= assigned;
+            }
+
+            parts[waterIndex] = water + (int)removed;
+            return (int)removed;
+        }
+
+        private struct GreedyOutcome
+        {
+            public int Passes;
+            public int PitcherPours;
+            public int Tablets;
+        }
+
+        private static GreedyOutcome RunPurifierGreedy(
+            int[] parts,
+            List<FilterSnapshot> working,
+            Func<int[], bool> isDone,
+            int tabletLeft,
+            FilterStock stock)
+        {
+            int passes = 0;
+            int pours = 0;
+            int tablets = 0;
+            int maxSteps = MaxPasses + Math.Max(0, tabletLeft) + 8;
+            for (int step = 0; step < maxSteps; step++)
+            {
+                if (isDone(parts))
+                {
+                    break;
+                }
+
+                bool filterOk = false;
+                double filterUnit = 0;
+                int[] filterParts = null;
+                List<FilterSnapshot> filterWorking = null;
+                int filterPours = 0;
+                int volumeBefore = Sum(parts);
+                {
+                    int[] probe = (int[])parts.Clone();
+                    List<FilterSnapshot> probeFilters = working.Select(f => f.Clone()).ToList();
+                    RunOnePassTowardTarget(probe, probeFilters, isDone);
+                    if (!SameParts(parts, probe))
+                    {
+                        int removed = ImpurityOf(parts) - ImpurityOf(probe);
+                        if (removed > 0)
+                        {
+                            double cost = CreditCostForFilters(probeFilters);
+                            filterOk = true;
+                            filterUnit = cost / removed;
+                            filterParts = probe;
+                            filterWorking = probeFilters;
+                            filterPours = PitcherPoursForVolume(volumeBefore);
+                        }
+                    }
+                }
+
+                bool tabletOk = false;
+                double tabletUnit = 0;
+                int[] tabletParts = null;
+                if (tabletLeft > 0)
+                {
+                    int[] probe = (int[])parts.Clone();
+                    ApplyOneTablet(probe);
+                    int removed = ImpurityOf(parts) - ImpurityOf(probe);
+                    if (removed > 0)
+                    {
+                        tabletOk = true;
+                        tabletUnit = TabletCredit(stock) / (double)removed;
+                        tabletParts = probe;
+                    }
+                }
+
+                if (!filterOk && !tabletOk)
+                {
+                    break;
+                }
+
+                bool useFilter = filterOk && (!tabletOk || filterUnit <= tabletUnit);
+                if (useFilter)
+                {
+                    CopyParts(filterParts, parts);
+                    CopyDurability(filterWorking, working);
+                    passes++;
+                    pours += filterPours;
+                }
+                else
+                {
+                    CopyParts(tabletParts, parts);
+                    tabletLeft--;
+                    tablets++;
+                }
+            }
+
+            return new GreedyOutcome { Passes = passes, PitcherPours = pours, Tablets = tablets };
+        }
+
+        private static double CreditCostForFilters(List<FilterSnapshot> after)
+        {
+            double cost = 0;
+            foreach (FilterSnapshot filter in after)
+            {
+                int used = Math.Max(0, filter.DurabilityBefore - filter.Durability);
+                if (used <= 0)
+                {
+                    continue;
+                }
+
+                long value = filter.UnitValue > 0 ? filter.UnitValue : FallbackFilterValue;
+                int maxDur = Math.Max(1, filter.MaxDurability);
+                cost += used * (double)value / maxDur;
+            }
+
+            return cost;
+        }
+
+        private static long TabletCredit(FilterStock stock)
+        {
+            if (stock?.Tablets != null)
+            {
+                foreach (FilterSnapshot tablet in stock.Tablets)
+                {
+                    if (tablet.UnitValue > 0)
+                    {
+                        return tablet.UnitValue;
+                    }
+                }
+            }
+
+            return FallbackTabletValue;
+        }
+
+        private static int ImpurityOf(int[] parts)
+        {
+            int waterIndex = IndexOf(Liquid.LIQUID_WATER);
+            int total = 0;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (i == waterIndex)
+                {
+                    continue;
+                }
+
+                total += Math.Max(0, parts[i]);
+            }
+
+            return total;
+        }
+
+        private static void CopyParts(int[] source, int[] dest)
+        {
+            int n = Math.Min(source.Length, dest.Length);
+            for (int i = 0; i < n; i++)
+            {
+                dest[i] = source[i];
+            }
+        }
+
+        private static void CopyDurability(List<FilterSnapshot> source, List<FilterSnapshot> dest)
+        {
+            int n = Math.Min(source.Count, dest.Count);
+            for (int i = 0; i < n; i++)
+            {
+                dest[i].Durability = source[i].Durability;
+            }
         }
         #endregion
 

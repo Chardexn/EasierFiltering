@@ -14,6 +14,7 @@ namespace EasierFiltering
         public int DurabilityBefore;
         public int MaxDurability;
         public bool IsUv;
+        public long UnitValue;
 
         public FilterSnapshot Clone()
         {
@@ -26,7 +27,8 @@ namespace EasierFiltering
                 Durability = Durability,
                 DurabilityBefore = Durability,
                 MaxDurability = MaxDurability,
-                IsUv = IsUv
+                IsUv = IsUv,
+                UnitValue = UnitValue
             };
         }
     }
@@ -36,9 +38,11 @@ namespace EasierFiltering
         public List<FilterSnapshot> Filters = new List<FilterSnapshot>();
         public List<FilterSnapshot> UvLamps = new List<FilterSnapshot>();
         public List<FilterSnapshot> Tablets = new List<FilterSnapshot>();
+        public List<FilterSnapshot> NutrientTablets = new List<FilterSnapshot>();
         public int TotalDurability;
         public bool HasUv => UvLamps.Count > 0;
         public int TabletCount => Tablets.Count;
+        public int NutrientTabletCount => NutrientTablets.Count;
     }
 
     /// <summary>
@@ -50,6 +54,8 @@ namespace EasierFiltering
         public const string TABLET_TAG = "WATER_PURIFICATION_TABLET";
         public const string TABLET_ID = "water_tablet";
         public const string TABLET_BOX_ID = "water_tablet_container";
+        public const string NUTRIENT_TABLET_TAG = "NUTRIENT_TABLET";
+        public const string NUTRIENT_TABLET_ID = "nutrient_tablet";
         public const string UV_FILTER_ID = "uv_filter";
         public const string ADV_FILTER_ID = "water_filter_adv";
         public const string BASIC_FILTER_ID = "water_filter";
@@ -83,6 +89,12 @@ namespace EasierFiltering
                 if (item.IsTag(TABLET_TAG) || item.identifier == TABLET_ID)
                 {
                     stock.Tablets.Add(ToSnapshot(item, isUv: false));
+                    continue;
+                }
+
+                if (IsNutrientTablet(item))
+                {
+                    stock.NutrientTablets.Add(ToSnapshot(item, isUv: false));
                     continue;
                 }
 
@@ -149,6 +161,25 @@ namespace EasierFiltering
             return FilterConfig.IncludeFabric.Value;
         }
 
+        public static bool IsNutrientTablet(GameItem item)
+        {
+            return item != null && (item.IsTag(NUTRIENT_TABLET_TAG) || item.identifier == NUTRIENT_TABLET_ID);
+        }
+
+        public static List<GameItem> FindNutrientTablets()
+        {
+            List<GameItem> list = new List<GameItem>();
+            foreach (GameItem item in EnumerateOwnedItems())
+            {
+                if (IsNutrientTablet(item))
+                {
+                    list.Add(item);
+                }
+            }
+
+            return list;
+        }
+
         private static FilterSnapshot ToSnapshot(GameItem item, bool isUv)
         {
             int durability = FilterConfig.UseRealDurability.Value
@@ -168,7 +199,8 @@ namespace EasierFiltering
                 Durability = Math.Max(0, durability),
                 DurabilityBefore = Math.Max(0, durability),
                 MaxDurability = isUv ? 0 : DurabilityHelper.GetMaxDurability(item),
-                IsUv = isUv
+                IsUv = isUv,
+                UnitValue = item.unitValue
             };
         }
         #endregion

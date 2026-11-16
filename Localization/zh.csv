@@ -1,6 +1,6 @@
 # key,文本
 tool_name,便携过滤装置
-tool_desc,对任意装水容器使用。预览当前搜索范围内的备用过滤器（优先高级），确认后原地一次性过滤。解锁「水资源交易」后可向杰克逊博士或退休水商购买。
+tool_desc,对任意装水容器或水培机使用。预览当前搜索范围内的备用过滤器（优先高级），确认后原地一次性过滤。对准水培机可选直接过滤（紫外线灯、净水药片、滤一次/优质水/纯水与水壶相同）或水培机种植。净水器只在对着已放进净水器的容器时出现。解锁「水资源交易」后可向杰克逊博士或退休水商购买。
 tool_flavor,用水壶反复倾倒是老实办法。这是给不想再倒来倒去的人准备的。
 
 cfg_section,通用
@@ -42,6 +42,15 @@ addon_tablets,净水药片
 addon_tablets_none,净水药片（没有）
 addon_tablets_tip,按过夜氯反应立刻结算，可降低微生物和化学污染物。消耗量见下方「消耗物品量」。
 preview_tier,过滤方式
+mode_direct,直接过滤
+mode_purifier,净水器
+mode_purifier_unavailable,把容器放进净水器后可用
+purifier_info,上限 {0} · 今晚可去约 {1} ml
+purifier_after_night,今晚净水器后 → {0}（{1}）
+tier_no_prep,{0}（{1}）：无需预处理，今晚可达
+tier_cap_limited,{0}：净水器上限 {1}，需要品质加成 100（当前 {2}）
+tier_nights,{0}（{1}）：今晚最高 {2}，极限预处理后约 {3} 夜
+tier_nights_never,{0}（{1}）：今晚最高 {2}，多夜也无法达标
 preview_default,滤一次
 tier_reached,{0}（{1}）：已达到
 tier_ok,{0}（{1}）：可达到，需消耗耐久 {2}
@@ -70,7 +79,68 @@ preview_confirm,执行过滤
 preview_cancel,取消
 tip_default,对当前容器里的整罐水做一次过滤，相当于用水壶倒过一遍滤芯。
 tip_stop_at_tier,达到挡位门槛即停止，不多耗耐久。
+tip_purifier,按今晚净水器的净化量计算，只预处理到刚好达标，不多耗滤芯和药片。
 
 warn_no_filter,当前搜索范围内没有可用的过滤器（或紫外线灯）。
+warn_no_power,今晚净水器不会运行（没有电池或电量不足）。
 warn_unfilterable,过滤器去不掉：{0}。理论上限：{1}。
 warn_shortfall,耐久不足（还差 {0}）。预计只能到 {1}。
+
+cfg_hydro_mode,水培机默认模式
+cfg_hydro_mode_tip,这台水培机还没有记住、或换了种子时使用。芦苇（含水培芦苇种子）会忽略此项，始终优先打开直接过滤的「滤一次」。其他种子默认打开水培机种植。净水器只在对着已放进净水器的容器时出现。
+opt_hydro_direct,直接过滤
+opt_hydro_plant,水培机种植
+
+hydro_title,水培机
+hydro_header,{0}    {1}
+hydro_modified,{0}（基因改造）
+hydro_no_seed,没有种子
+hydro_no_water,没有水
+hydro_water_line,{0}/{1} ml
+hydro_seed,种子
+hydro_seed_range,适宜矿物质 {0} ~ {1}
+hydro_seed_range_mod,适宜矿物质 {0} ~ {1}（原始 {2}~{3}，耐受 ×{4}）
+hydro_seed_stats,杂质敏感度 ×{0}（{1}）    {2}
+hydro_seed_water,每周期用水 {0} ml
+hydro_seed_water_mod,每周期用水 {0} ml（原始 {1}）
+hydro_seed_traits,性状：{0}
+hydro_traits_none,无
+hydro_trait_sep,、
+hydro_mode_plant,水培机种植
+hydro_range,浓度区间
+hydro_lo,下限
+hydro_hi,上限
+hydro_target,投放目标（中间值）：{0}
+hydro_restore,恢复默认
+hydro_stock_tablets,水培营养片    消耗 {0} / 库存 {1}
+hydro_stock_filters,过滤器    消耗耐久 {0} / 总量 {1}
+hydro_result_mineral,矿物质 {0} → {1}（{2}）
+hydro_in_range,区间内
+hydro_out_range,超出区间
+hydro_result_safe,有害杂质：已无损
+hydro_result_unsafe,仍会伤害植物：{0}
+hydro_unsafe_item,{0} {1}
+hydro_result_consume,消耗营养片 {0} 片
+hydro_result_cycles,预计可维持约 {0} 个周期
+hydro_confirm,执行调配
+hydro_sens_immune,免疫
+hydro_sens_average,一般
+hydro_sens_very_sensitive,非常敏感
+hydro_sens_sensitive,敏感
+hydro_sens_slightly_sensitive,略敏感
+hydro_sens_very_resistant,非常耐受
+hydro_sens_resistant,耐受
+hydro_sens_slightly_resistant,略耐受
+hydro_sens_unknown,未知
+hydro_warn_no_machine,没有找到水培机。
+hydro_warn_no_seed,请先把种子放进水培机。
+hydro_warn_no_water,水槽是空的。
+hydro_warn_over_limit,矿物质已超过上限。请换水或加水稀释。
+hydro_warn_no_tablets,当前搜索范围内没有水培营养片。
+hydro_warn_shortfall,营养片不足（还差 {0} 片）。
+hydro_warn_no_filter,当前搜索范围内没有可用的过滤器。
+hydro_tip_plant,按种子的适宜矿物质投放营养片。有害杂质请先切到「直接过滤」处理。
+hydro_warn_unsafe,剩下的杂质仍会伤害植物：{0}
+hydro_warn_overflow,容器已满，多加的营养片会挤掉一部分液体。
+hydro_warn_overshoot,加一片就会超过上限。请先加水或换更大的容器。
+hydro_warn_already,已经在区间内，不必再加营养片。
