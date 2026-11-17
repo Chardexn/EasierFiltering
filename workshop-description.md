@@ -20,15 +20,14 @@
 
 ## 设置
 
-游戏主菜单 → 模组 → 本模组右侧齿轮：
+主菜单 → 模组 → 齿轮（选项全文见 README）：
 
-- 过滤器搜索范围：默认主仓库 + 后台；可改成所有自己的物品，或只用主仓库
-- 耗尽的滤芯去向：留在原位 / 垃圾桶 / 主仓库 / 后台柜台
-- 启用紫外线灯选项、启用净水药片选项：默认关；打开后预览里才出现勾选框
-- 整瓶净水药片可拖到容器：默认关
-- 按真实耐久计算：默认开。关掉的话，假过滤器会看起来比实际更耐用
-- 使用非常规滤材：默认关。打开后连 Kotton 布等带过滤标签的东西也会拿来用
-- 水培机默认模式：换种子或尚未记住设置时使用；芦苇始终优先「滤一次」
+- 过滤器搜索范围：默认主仓库 + 后台
+- 耗尽的滤芯去向：默认留在原位
+- 紫外线灯 / 净水药片 / 整瓶拖放：默认关
+- 按真实耐久计算：默认开
+- 使用非常规滤材：默认关
+- 水培机默认模式：芦苇始终「滤一次」
 
 ## 卸载
 
@@ -81,7 +80,14 @@ The hydroponic window has Direct and Planting only. Hydroreed opens Direct on on
 
 ## Settings
 
-Mod menu gear: search scope, where spent filters go, UV / tablets / bottle-drag toggles, real vs displayed durability, improvised filter media, and the default hydroponic mode (hydroreed always prefers one pass).
+Mod menu gear (full options in README):
+
+- Filter search: default main storage + back
+- Spent filters: default stay in place
+- UV lamp / tablets / bottle-drag: default off
+- Real durability: default on
+- Improvised media: default off
+- Hydroponic default: hydroreed always one pass
 
 ## Uninstall
 
